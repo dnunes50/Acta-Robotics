@@ -134,6 +134,28 @@
       .aporte-grid { grid-template-columns:1fr; }
       .bar-label { flex:0 0 120px; }
     }
+
+    /* ── LOGIN ── */
+    #login-screen { position:fixed; inset:0; background:#1a1a1a; z-index:9000; display:none; align-items:center; justify-content:center; flex-direction:column; }
+    #login-screen.show { display:flex; }
+    .login-box { width:100%; max-width:380px; padding:16px; }
+    .login-logo-acta { font-size:32px; font-weight:900; color:#E87722; letter-spacing:6px; font-family:'Arial Black',sans-serif; }
+    .login-logo-sub { font-size:9px; letter-spacing:6px; color:#666; margin-top:4px; }
+    .login-card { background:#242424; border-radius:12px; padding:28px; border:.5px solid rgba(255,255,255,.08); margin-top:32px; }
+    .login-title { font-size:16px; font-weight:600; color:#fff; margin-bottom:4px; }
+    .login-sub { font-size:12px; color:#666; margin-bottom:24px; }
+    .login-label { font-size:11px; font-weight:600; color:#888; text-transform:uppercase; letter-spacing:.5px; display:block; margin-bottom:6px; }
+    .login-input { width:100%; background:#1a1a1a; border:.5px solid rgba(255,255,255,.15); border-radius:8px; padding:10px 12px; font-size:13px; color:#fff; outline:none; transition:border .15s; }
+    .login-input:focus { border-color:#E87722; }
+    .login-field { margin-bottom:14px; }
+    .login-btn { width:100%; background:#E87722; color:#fff; border:none; border-radius:8px; padding:11px; font-size:13px; font-weight:600; cursor:pointer; transition:background .15s; margin-top:6px; }
+    .login-btn:hover { background:#c96318; }
+    .login-btn:disabled { background:#555; cursor:not-allowed; }
+    .login-erro { display:none; background:rgba(220,38,38,.12); border:.5px solid rgba(220,38,38,.3); border-radius:6px; padding:8px 12px; font-size:12px; color:#f87171; margin-bottom:14px; }
+    .login-rodape { text-align:center; margin-top:16px; font-size:11px; color:#444; }
+    /* user badge no header */
+    .user-badge { background:rgba(255,255,255,.08); border:.5px solid rgba(255,255,255,.15); color:#ccc; padding:3px 8px; border-radius:6px; font-size:10px; cursor:pointer; margin-left:6px; }
+    .user-badge:hover { background:rgba(255,255,255,.15); color:#fff; }
   </style>
 </head>
 <body>
@@ -143,7 +165,36 @@
   <div class="loading-logo">ACTA</div>
   <div class="loading-sub">R O B O T I C S</div>
   <div class="loading-bar"><div class="loading-bar-inner"></div></div>
-  <div class="loading-msg" id="loading-msg">Conectando ao banco de dados...</div>
+  <div class="loading-msg" id="loading-msg">Verificando sessão...</div>
+</div>
+
+
+<!-- LOGIN -->
+<div id="login-screen">
+  <div class="login-box">
+    <div style="text-align:center">
+      <div class="login-logo-acta">ACTA</div>
+      <div class="login-logo-sub">R O B O T I C S</div>
+      <div style="font-size:12px;color:#555;margin-top:12px;font-weight:500">Posição de Caixa</div>
+    </div>
+    <div class="login-card">
+      <div class="login-title">Entrar</div>
+      <div class="login-sub">Acesso restrito — apenas usuários autorizados</div>
+      <div class="login-field">
+        <label class="login-label">E-mail</label>
+        <input id="login-email" class="login-input" type="email" placeholder="seu@email.com"
+          onkeydown="if(event.key==='Enter')document.getElementById('login-senha').focus()">
+      </div>
+      <div class="login-field">
+        <label class="login-label">Senha</label>
+        <input id="login-senha" class="login-input" type="password" placeholder="••••••••"
+          onkeydown="if(event.key==='Enter')fazerLogin()">
+      </div>
+      <div class="login-erro" id="login-erro"></div>
+      <button class="login-btn" id="login-btn" onclick="fazerLogin()">Entrar</button>
+    </div>
+    <div class="login-rodape">Problemas de acesso? Contate o administrador.</div>
+  </div>
 </div>
 
 <!-- HEADER -->
@@ -155,7 +206,7 @@
   <div class="header-right">
     <div class="htitle">Posição de Caixa</div>
     <div class="hdate" id="hdate"></div>
-    <div class="sync-btn" id="sync-status" onclick="sincronizar()">↻ Sincronizar</div>
+    <div style="display:flex;align-items:center;gap:6px;margin-top:3px;justify-content:flex-end"><div class="sync-btn" id="sync-status" onclick="sincronizar()">↻ Sincronizar</div><div class="user-badge" id="user-email-badge"></div><div class="user-badge" onclick="fazerLogout()" title="Sair">Sair</div></div>
   </div>
 </div>
 
@@ -768,8 +819,70 @@ function buildChartDesp() {
   document.getElementById('desp-lgd').innerHTML=cats.map((c,i)=>`<span><span class="ld" style="background:${CORES[i]}"></span>${c}</span>`).join('')
 }
 
-// ── INICIAR ───────────────────────────────────────────────────────────────────
-carregarDoSupabase()
+// ── AUTENTICAÇÃO ─────────────────────────────────────────────────────────────
+function mostrarLogin() {
+  document.getElementById('login-screen').classList.add('show')
+  esconderLoading()
+}
+function esconderLogin() {
+  document.getElementById('login-screen').classList.remove('show')
+}
+
+async function fazerLogin() {
+  const email = document.getElementById('login-email').value.trim()
+  const senha = document.getElementById('login-senha').value
+  const erro = document.getElementById('login-erro')
+  const btn = document.getElementById('login-btn')
+  if(!email || !senha) { mostrarErroLogin('Preencha e-mail e senha.'); return }
+  btn.disabled = true; btn.textContent = 'Entrando...'
+  erro.style.display = 'none'
+  const { data, error } = await sb.auth.signInWithPassword({ email, password: senha })
+  if(error) {
+    mostrarErroLogin('E-mail ou senha incorretos.')
+    btn.disabled = false; btn.textContent = 'Entrar'
+    return
+  }
+  esconderLogin()
+  mostrarAppComUsuario(data.user)
+  carregarDoSupabase()
+}
+
+function mostrarErroLogin(msg) {
+  const el = document.getElementById('login-erro')
+  el.textContent = msg; el.style.display = 'block'
+}
+
+async function fazerLogout() {
+  await sb.auth.signOut()
+  DATA=[]; PENDING=[]; CH={}; MONTHS=[]; BM={}
+  document.getElementById('user-email-badge').textContent = ''
+  mostrarLogin()
+  // Limpa todos os gráficos
+  Object.keys(CH).forEach(id => kill(id))
+}
+
+function mostrarAppComUsuario(user) {
+  const badge = document.getElementById('user-email-badge')
+  badge.textContent = user.email
+}
+
+// ── INICIAR COM VERIFICAÇÃO DE SESSÃO ────────────────────────────────────────
+async function iniciar() {
+  setLoadMsg('Verificando sessão...')
+  const { data: { session } } = await sb.auth.getSession()
+  if(session) {
+    mostrarAppComUsuario(session.user)
+    await carregarDoSupabase()
+  } else {
+    mostrarLogin()
+  }
+  // Monitora mudanças de autenticação
+  sb.auth.onAuthStateChange((event, session) => {
+    if(event === 'SIGNED_OUT') mostrarLogin()
+  })
+}
+
+iniciar()
 </script>
 </body>
 </html>
