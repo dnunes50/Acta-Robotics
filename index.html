@@ -911,7 +911,7 @@ function renderHist() {
   })
 
   // ── Cards por mês ──────────────────────────────────────────────────────────
-  document.getElementById('hist-cards').innerHTML = mesData.map(({mk,m,rec,apo,sai,res,tipo,cor}) => `
+  document.getElementById('hist-cards').innerHTML = mesData.map(({mk,m,rec,apo,sai,res,cb,tipo,cor}) => `
     <div class="card" style="margin-bottom:0">
       <div style="padding:8px 13px;border-bottom:.5px solid var(--bd);display:flex;justify-content:space-between;align-items:center">
         <span style="font-weight:700;font-size:13px">${MNm(mk).toUpperCase()}</span>
