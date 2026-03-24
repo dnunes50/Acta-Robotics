@@ -567,7 +567,7 @@ function processarDados() {
     m.real = !sits.has('Em aberto')
     m.parcial = sits.has('Em aberto') && (sits.has('Conciliado')||sits.has('Quitado'))
   })
-  AMES = MONTHS[MONTHS.length-1]
+  AMES = 'all'
   buildMesBtns()
   refresh()
 }
