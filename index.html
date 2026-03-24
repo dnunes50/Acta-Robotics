@@ -129,6 +129,7 @@
     .tl-bal { flex:0 0 90px; text-align:right; font-weight:600; }
 
     @media(max-width:768px) {
+      #kgrid-dash { grid-template-columns:repeat(2,1fr) !important; }
       .kgrid { grid-template-columns:repeat(2,1fr); }
       .tcol { grid-template-columns:1fr; }
       .aporte-grid { grid-template-columns:1fr; }
@@ -228,27 +229,91 @@
 
 <!-- DASHBOARD -->
 <div id="pg-dash" class="pg">
-  <div class="kgrid">
+  <!-- KPIs: 5 cards — Saldo / Receita Clientes / Aporte / Saídas / Resultado -->
+  <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:12px" id="kgrid-dash">
     <div class="kcard"><div class="klbl">Saldo Atual</div><div class="kval" id="k-sal">–</div><div class="ksub" id="k-sal-s">–</div></div>
-    <div class="kcard"><div class="klbl">Entradas</div><div class="kval pos" id="k-ent">–</div><div class="ksub" id="k-ent-s">–</div></div>
+    <div class="kcard" style="border-left-color:var(--g);cursor:pointer" onclick="toggleDetalhe('receita')">
+      <div class="klbl" style="display:flex;justify-content:space-between">Receita Clientes <span id="arr-receita" style="color:var(--g)">▼</span></div>
+      <div class="kval pos" id="k-rec">–</div><div class="ksub" id="k-rec-s">–</div>
+    </div>
+    <div class="kcard" style="border-left-color:var(--bl);cursor:pointer" onclick="toggleDetalhe('aporte')">
+      <div class="klbl" style="display:flex;justify-content:space-between">Aportes <span id="arr-aporte" style="color:var(--bl)">▼</span></div>
+      <div class="kval info" id="k-apo">–</div><div class="ksub" id="k-apo-s">–</div>
+    </div>
     <div class="kcard"><div class="klbl">Saídas</div><div class="kval neg" id="k-sai">–</div><div class="ksub" id="k-sai-s">–</div></div>
-    <div class="kcard"><div class="klbl">Resultado</div><div class="kval" id="k-res">–</div><div class="ksub" id="k-res-s">–</div></div>
+    <div class="kcard" style="border-left-color:var(--am)"><div class="klbl">Cash Burn</div><div class="kval" id="k-res">–</div><div class="ksub" id="k-res-s">–</div></div>
   </div>
+
+  <!-- DETALHE RECEITA (expansível) -->
+  <div class="card" id="detalhe-receita" style="margin-bottom:12px;display:none">
+    <div class="ch" style="cursor:pointer" onclick="toggleDetalhe('receita')">
+      <span class="ct">Detalhamento — Receita de Clientes</span>
+      <span class="cb cb-g" id="total-receita-badge">–</span>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:0">
+      <div style="border-right:.5px solid var(--bd)">
+        <div style="padding:7px 13px;background:#f8f8f8;border-bottom:.5px solid var(--bd)"><span style="font-size:10px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.5px">Por cliente</span></div>
+        <div id="rec-por-cliente" style="max-height:220px;overflow-y:auto"></div>
+      </div>
+      <div>
+        <div style="padding:7px 13px;background:#f8f8f8;border-bottom:.5px solid var(--bd)"><span style="font-size:10px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.5px">Lançamentos</span></div>
+        <div style="overflow-x:auto;max-height:220px;overflow-y:auto">
+          <table class="t"><thead><tr><th>Data</th><th>Cliente</th><th>Descrição</th><th>Valor</th><th>Sit.</th></tr></thead>
+          <tbody id="rec-lancamentos"></tbody></table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- DETALHE APORTE (expansível) -->
+  <div class="card" id="detalhe-aporte" style="margin-bottom:12px;display:none">
+    <div class="ch" style="cursor:pointer" onclick="toggleDetalhe('aporte')">
+      <span class="ct">Detalhamento — Aportes</span>
+      <span class="cb cb-b" id="total-aporte-badge">–</span>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:0">
+      <div style="border-right:.5px solid var(--bd)">
+        <div style="padding:7px 13px;background:#f8f8f8;border-bottom:.5px solid var(--bd)"><span style="font-size:10px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.5px">Por origem</span></div>
+        <div id="apo-por-origem" style="max-height:220px;overflow-y:auto"></div>
+      </div>
+      <div>
+        <div style="padding:7px 13px;background:#f8f8f8;border-bottom:.5px solid var(--bd)"><span style="font-size:10px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.5px">Lançamentos</span></div>
+        <div style="overflow-x:auto;max-height:220px;overflow-y:auto">
+          <table class="t"><thead><tr><th>Data</th><th>Origem</th><th>Valor</th><th>Sit.</th></tr></thead>
+          <tbody id="apo-lancamentos"></tbody></table>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <div class="tcol">
     <div class="card" style="margin-bottom:0">
       <div class="ch"><span class="ct">Evolução do Saldo</span><span class="cb cb-o" id="d-lbl">–</span></div>
       <div class="cw"><div class="cc"><canvas id="c-dash"></canvas></div></div>
-      <div class="lgd"><span><span class="ld" style="background:#E87722"></span>Saldo</span><span><span class="ld" style="background:#16a34a"></span>Entradas</span><span><span class="ld" style="background:#dc2626"></span>Saídas</span></div>
+      <div class="lgd">
+        <span><span class="ld" style="background:#E87722"></span>Saldo</span>
+        <span><span class="ld" style="background:#16a34a"></span>Receita clientes</span>
+        <span><span class="ld" style="background:#2563eb"></span>Aportes</span>
+        <span><span class="ld" style="background:#dc2626"></span>Saídas</span>
+      </div>
     </div>
     <div class="card" style="margin-bottom:0">
       <div class="ch"><span class="ct">Resumo</span></div>
-      <div class="sum3">
+      <div style="display:grid;grid-template-columns:repeat(5,1fr)">
         <div class="si"><div class="sl">Saldo Inicial</div><div class="sv" id="d-ini">–</div></div>
+        <div class="si"><div class="sl">Receita Clientes</div><div class="sv pos" id="d-rec">–</div></div>
+        <div class="si"><div class="sl">Aportes</div><div class="sv info" id="d-apo">–</div></div>
+        <div class="si"><div class="sl">Cash Burn</div><div class="sv" id="d-cb">–</div></div>
         <div class="si"><div class="sl">Saldo Final</div><div class="sv" id="d-fin">–</div></div>
-        <div class="si"><div class="sl">Resultado</div><div class="sv" id="d-res2">–</div></div>
       </div>
-      <div style="padding:8px 13px;border-top:.5px solid var(--bd)"><div class="klbl" style="margin-bottom:4px">Maiores recebimentos</div><div id="d-ent"></div></div>
-      <div style="padding:8px 13px;border-top:.5px solid var(--bd)"><div class="klbl" style="margin-bottom:4px">Maiores desembolsos</div><div id="d-sai"></div></div>
+      <div style="padding:8px 13px;border-top:.5px solid var(--bd)">
+        <div class="klbl" style="margin-bottom:4px">Receita por cliente</div>
+        <div id="d-ent"></div>
+      </div>
+      <div style="padding:8px 13px;border-top:.5px solid var(--bd)">
+        <div class="klbl" style="margin-bottom:4px">Maiores desembolsos</div>
+        <div id="d-sai"></div>
+      </div>
     </div>
   </div>
   <!-- ALERTA -->
@@ -271,12 +336,47 @@
 
 <!-- HISTÓRICO -->
 <div id="pg-hist" class="pg" style="display:none">
+
+  <!-- Gráfico evolução saldo -->
   <div class="card">
-    <div class="ch"><span class="ct">Evolução — Período Selecionado</span><span class="cb cb-g" id="hist-lbl">–</span></div>
-    <div class="cw"><div class="cc" style="height:220px"><canvas id="c-hist"></canvas></div></div>
-    <div class="lgd"><span><span class="ld" style="background:#16a34a"></span>Realizado</span><span><span class="ld" style="background:#2563eb;opacity:.7"></span>Previsto</span></div>
+    <div class="ch"><span class="ct">Evolução do Saldo — Período Selecionado</span><span class="cb cb-g" id="hist-lbl">–</span></div>
+    <div class="cw"><div class="cc" style="height:200px"><canvas id="c-hist"></canvas></div></div>
+    <div class="lgd">
+      <span><span class="ld" style="background:#E87722"></span>Saldo</span>
+      <span><span class="ld" style="background:#16a34a"></span>Receita clientes</span>
+      <span><span class="ld" style="background:#2563eb"></span>Aportes</span>
+      <span><span class="ld" style="background:#dc2626"></span>Saídas</span>
+      <span><span class="ld" style="background:#16a34a;opacity:.3;border:1px dashed #16a34a"></span>Previsto</span>
+    </div>
   </div>
-  <div id="hist-cards" style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px"></div>
+
+  <!-- Cards por mês com separação -->
+  <div id="hist-cards" style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:12px"></div>
+
+  <!-- Tabela consolidada receita x aporte x saída por mês -->
+  <div class="card">
+    <div class="ch"><span class="ct">Consolidado por Mês</span><span class="cb cb-o" id="hist-total-badge">–</span></div>
+    <div style="overflow-x:auto">
+      <table class="t">
+        <thead>
+          <tr>
+            <th style="text-align:left">Mês</th>
+            <th>Saldo Inicial</th>
+            <th style="color:#16a34a">Receita Clientes</th>
+            <th style="color:#2563eb">Aportes</th>
+            <th style="color:#dc2626">Saídas</th>
+            <th style="color:var(--am)">Cash Burn</th>
+            <th>Resultado Total</th>
+            <th>Saldo Final</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody id="hist-table-body"></tbody>
+        <tfoot id="hist-table-foot"></tfoot>
+      </table>
+    </div>
+  </div>
+
 </div>
 
 <!-- DIÁRIO -->
@@ -597,38 +697,126 @@ function cancelImp() {
   document.getElementById('fi').value = ''
 }
 
+// ── HELPERS RECEITA / APORTE ─────────────────────────────────────────────────
+const isReceita = t => t.valor > 0 && t.cat && t.cat.startsWith('4.')
+const isAporte  = t => t.valor > 0 && t.cat && t.cat.includes('6.5')
+const isOutraEnt= t => t.valor > 0 && !isReceita(t) && !isAporte(t)
+
+// ── TOGGLE DETALHE ────────────────────────────────────────────────────────────
+const _detalheAberto = { receita: false, aporte: false }
+function toggleDetalhe(tipo) {
+  _detalheAberto[tipo] = !_detalheAberto[tipo]
+  const el = document.getElementById('detalhe-'+tipo)
+  const arr = document.getElementById('arr-'+tipo)
+  el.style.display = _detalheAberto[tipo] ? 'block' : 'none'
+  arr.textContent = _detalheAberto[tipo] ? '▲' : '▼'
+}
+
 // ── DASHBOARD ────────────────────────────────────────────────────────────────
 function renderDash() {
   const txns=filtTxns(), ini=saldoIni(); if(!txns.length) return
-  const cur=txns[txns.length-1].saldo, ent=txns.filter(t=>t.valor>0).reduce((s,t)=>s+t.valor,0), sai=txns.filter(t=>t.valor<0).reduce((s,t)=>s+t.valor,0), cb=ent+sai
+  const cur=txns[txns.length-1].saldo
+  const rec = txns.filter(isReceita)
+  const apo = txns.filter(isAporte)
+  const sai = txns.filter(t=>t.valor<0)
+  const totRec = rec.reduce((s,t)=>s+t.valor,0)
+  const totApo = apo.reduce((s,t)=>s+t.valor,0)
+  const totSai = sai.reduce((s,t)=>s+t.valor,0)
+  const totEnt = totRec + totApo
+  const cashburn = totRec + totSai   // Receita Clientes - Saídas (sem aporte)
   const lbl = AMES==='all' ? 'Todos' : MNm(AMES).toUpperCase()
+
+  // KPIs
   document.getElementById('k-sal').textContent=R(cur)
   document.getElementById('k-sal-s').innerHTML=`<span class="${cur>=5000?'pos':cur>=1000?'warn':'neg'}">${cur>=5000?'● Saudável':cur>=1000?'▲ Atenção':'▼ Crítico'}</span>`
-  document.getElementById('k-ent').textContent=R(ent); document.getElementById('k-ent-s').textContent=txns.filter(t=>t.valor>0).length+' operações'
-  document.getElementById('k-sai').textContent=R(Math.abs(sai)); document.getElementById('k-sai-s').textContent=txns.filter(t=>t.valor<0).length+' operações'
-  document.getElementById('k-res').innerHTML=`<span class="${cb>=0?'pos':'neg'}">${R(cb)}</span>`
-  document.getElementById('k-res-s').innerHTML=`<span class="${cb>=0?'pos':'neg'}">${cb>=0?'● Positivo':'▼ Negativo'}</span>`
+  document.getElementById('k-rec').textContent=R(totRec)
+  document.getElementById('k-rec-s').textContent=rec.length+' operações — clique para detalhar'
+  document.getElementById('k-apo').textContent=R(totApo)
+  document.getElementById('k-apo-s').textContent=apo.length+' aportes — clique para detalhar'
+  document.getElementById('k-sai').textContent=R(Math.abs(totSai))
+  document.getElementById('k-sai-s').textContent=sai.length+' operações'
+  document.getElementById('k-res').innerHTML=`<span class="${cashburn>=0?'pos':'neg'}">${R(cashburn)}</span>`
+  document.getElementById('k-res-s').innerHTML=`<span class="${cashburn>=0?'pos':'neg'}">${cashburn>=0?'● Positivo':'▼ Negativo'}</span>`
+
+  // Resumo
   document.getElementById('d-lbl').textContent=lbl
   document.getElementById('d-ini').textContent=R(ini)
+  document.getElementById('d-rec').textContent=R(totRec)
+  document.getElementById('d-apo').textContent=R(totApo)
+  const cbEl=document.getElementById('d-cb')
+  cbEl.textContent=R(cashburn)
+  cbEl.className='sv '+(cashburn>=0?'pos':'neg')
   document.getElementById('d-fin').innerHTML=`<span class="${cur>=0?'pos':'neg'}">${R(cur)}</span>`
-  const res=cur-ini; document.getElementById('d-res2').innerHTML=`<span class="${res>=0?'pos':'neg'}">${R(res)}</span>`
-  const sm={},pm={}
-  txns.filter(t=>t.valor>0).forEach(t=>{const k=(t.nome||'').substring(0,28);sm[k]=(sm[k]||0)+t.valor})
-  txns.filter(t=>t.valor<0).forEach(t=>{const k=(t.nome||'').substring(0,28);pm[k]=(pm[k]||0)+t.valor})
-  document.getElementById('d-ent').innerHTML=Object.entries(sm).sort((a,b)=>b[1]-a[1]).slice(0,4).map(([k,v])=>`<div style="display:flex;justify-content:space-between;padding:2px 0;border-bottom:.5px solid var(--bd);font-size:11px"><span style="color:var(--muted)">${k}</span><span class="pos">${R(v)}</span></div>`).join('')||'<span style="font-size:11px;font-style:italic;color:var(--muted)">–</span>'
-  document.getElementById('d-sai').innerHTML=Object.entries(pm).sort((a,b)=>a[1]-b[1]).slice(0,4).map(([k,v])=>`<div style="display:flex;justify-content:space-between;padding:2px 0;border-bottom:.5px solid var(--bd);font-size:11px"><span style="color:var(--muted)">${k}</span><span class="neg">${R(v)}</span></div>`).join('')||'<span style="font-size:11px;font-style:italic;color:var(--muted)">–</span>'
-  buildChartDash(txns)
+
+  // Receita por cliente (top 4 no resumo)
+  const smRec={}
+  rec.forEach(t=>{const k=(t.nome||t.desc||'–').substring(0,28);smRec[k]=(smRec[k]||0)+t.valor})
+  document.getElementById('d-ent').innerHTML=Object.entries(smRec).sort((a,b)=>b[1]-a[1]).slice(0,4)
+    .map(([k,v])=>`<div style="display:flex;justify-content:space-between;padding:2px 0;border-bottom:.5px solid var(--bd);font-size:11px"><span style="color:var(--muted)">${k}</span><span class="pos">${R(v)}</span></div>`).join('')
+    ||'<span style="font-size:11px;font-style:italic;color:var(--muted)">–</span>'
+
+  // Desembolsos top 4
+  const pm={}
+  sai.forEach(t=>{const k=(t.nome||'').substring(0,28);pm[k]=(pm[k]||0)+t.valor})
+  document.getElementById('d-sai').innerHTML=Object.entries(pm).sort((a,b)=>a[1]-b[1]).slice(0,4)
+    .map(([k,v])=>`<div style="display:flex;justify-content:space-between;padding:2px 0;border-bottom:.5px solid var(--bd);font-size:11px"><span style="color:var(--muted)">${k}</span><span class="neg">${R(v)}</span></div>`).join('')
+    ||'<span style="font-size:11px;font-style:italic;color:var(--muted)">–</span>'
+
+  // ── DETALHE RECEITA ─────────────────────────────────────────────────────────
+  document.getElementById('total-receita-badge').textContent=R(totRec)+' — '+rec.length+' lançamentos'
+  const smRecCli={}
+  rec.forEach(t=>{const k=(t.nome||t.desc||'–').substring(0,30);smRecCli[k]=(smRecCli[k]||0)+t.valor})
+  document.getElementById('rec-por-cliente').innerHTML=Object.entries(smRecCli).sort((a,b)=>b[1]-a[1])
+    .map(([k,v])=>{const pct=Math.round(v/totRec*100)||0;return `<div style="padding:6px 13px;border-bottom:.5px solid var(--bd)"><div style="display:flex;justify-content:space-between;margin-bottom:3px;font-size:11px"><span style="font-weight:500">${k}</span><span class="pos">${R(v)}</span></div><div style="background:#f0f0f0;border-radius:2px;height:4px"><div style="background:var(--g);width:${pct}%;height:100%;border-radius:2px"></div></div></div>`}).join('')
+  document.getElementById('rec-lancamentos').innerHTML=rec.sort((a,b)=>b.date-a.date)
+    .map(t=>`<tr><td>${t.date.toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit'})}</td><td style="max-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${t.nome||'–'}</td><td style="max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--muted)">${t.desc}</td><td class="pos">${R(t.valor)}</td><td><span style="font-size:9px;font-weight:600;color:${isReal(t)?'var(--g)':'var(--bl)'}">${isReal(t)?'✓':'◌'}</span></td></tr>`).join('')
+
+  // ── DETALHE APORTE ──────────────────────────────────────────────────────────
+  document.getElementById('total-aporte-badge').textContent=R(totApo)+' — '+apo.length+' lançamentos'
+  const smApo={}
+  apo.forEach(t=>{const k=(t.nome||t.desc||'–').substring(0,30);smApo[k]=(smApo[k]||0)+t.valor})
+  document.getElementById('apo-por-origem').innerHTML=Object.entries(smApo).sort((a,b)=>b[1]-a[1])
+    .map(([k,v])=>{const pct=totApo>0?Math.round(v/totApo*100):0;return `<div style="padding:6px 13px;border-bottom:.5px solid var(--bd)"><div style="display:flex;justify-content:space-between;margin-bottom:3px;font-size:11px"><span style="font-weight:500">${k}</span><span class="info">${R(v)}</span></div><div style="background:#f0f0f0;border-radius:2px;height:4px"><div style="background:var(--bl);width:${pct}%;height:100%;border-radius:2px"></div></div></div>`}).join('')
+  document.getElementById('apo-lancamentos').innerHTML=apo.sort((a,b)=>b.date-a.date)
+    .map(t=>`<tr><td>${t.date.toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit'})}</td><td style="max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${t.nome||t.desc||'–'}</td><td class="info">${R(t.valor)}</td><td><span style="font-size:9px;font-weight:600;color:${isReal(t)?'var(--g)':'var(--bl)'}">${isReal(t)?'✓':'◌'}</span></td></tr>`).join('')
+
+  buildChartDash(txns, totRec, totApo)
   buildAlerta()
 }
 
-function buildChartDash(txns) {
-  const g={}; txns.forEach(t=>{const k=PK(t.date);if(!g[k])g[k]={e:0,s:0,sal:t.saldo};if(t.valor>0)g[k].e+=t.valor;else g[k].s+=t.valor;g[k].sal=t.saldo})
-  const days=Object.entries(g).sort((a,b)=>a[0]>b[0]?1:-1), lb=[],sal=[],en=[],sa=[]
-  days.forEach(([k,d])=>{lb.push(new Date(k).toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit'}));sal.push(+d.sal.toFixed(2));en.push(+d.e.toFixed(2));sa.push(+Math.abs(d.s).toFixed(2))})
+function buildChartDash(txns, _totRec, _totApo) {
+  const g={}
+  txns.forEach(t=>{
+    const k=PK(t.date)
+    if(!g[k]) g[k]={rec:0,apo:0,sai:0,sal:t.saldo}
+    if(isReceita(t)) g[k].rec+=t.valor
+    else if(isAporte(t)) g[k].apo+=t.valor
+    else if(t.valor<0) g[k].sai+=Math.abs(t.valor)
+    g[k].sal=t.saldo
+  })
+  const days=Object.entries(g).sort((a,b)=>a[0]>b[0]?1:-1)
+  const lb=[],sal=[],rec=[],apo=[],sai=[]
+  days.forEach(([k,d])=>{
+    lb.push(new Date(k).toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit'}))
+    sal.push(+d.sal.toFixed(2)); rec.push(+d.rec.toFixed(2))
+    apo.push(+d.apo.toFixed(2)); sai.push(+d.sai.toFixed(2))
+  })
   kill('dash')
   CH.dash=new Chart(document.getElementById('c-dash').getContext('2d'),{
-    data:{labels:lb,datasets:[{type:'line',data:sal,borderColor:'#E87722',borderWidth:2.5,pointRadius:2,fill:false,tension:0.3,yAxisID:'y'},{type:'bar',data:en,backgroundColor:'rgba(22,163,74,.55)',yAxisID:'y2'},{type:'bar',data:sa,backgroundColor:'rgba(220,38,38,.55)',yAxisID:'y2'}]},
-    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>R(c.parsed.y)}}},scales:{x:{ticks:{font:{size:9},maxRotation:45,autoSkip:true,maxTicksLimit:14},grid:{display:false}},y:{position:'left',ticks:{font:{size:9},callback:v=>'R$'+(v/1000).toFixed(0)+'k'},grid:{color:'rgba(0,0,0,0.05)'}},y2:{position:'right',ticks:{font:{size:9},callback:v=>'R$'+(v/1000).toFixed(0)+'k'},grid:{display:false}}}}
+    data:{labels:lb,datasets:[
+      {type:'line',data:sal,borderColor:'#E87722',borderWidth:2.5,pointRadius:2,fill:false,tension:0.3,yAxisID:'y'},
+      {type:'bar',data:rec,backgroundColor:'rgba(22,163,74,.65)',yAxisID:'y2',stack:'s',label:'Receita'},
+      {type:'bar',data:apo,backgroundColor:'rgba(37,99,235,.55)',yAxisID:'y2',stack:'s',label:'Aporte'},
+      {type:'bar',data:sai,backgroundColor:'rgba(220,38,38,.55)',yAxisID:'y2',stack:'s2',label:'Saídas'}
+    ]},
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>c.dataset.label+': '+R(c.parsed.y)}}},
+      scales:{
+        x:{ticks:{font:{size:9},maxRotation:45,autoSkip:true,maxTicksLimit:14},grid:{display:false}},
+        y:{position:'left',ticks:{font:{size:9},callback:v=>'R$'+(v/1000).toFixed(0)+'k'},grid:{color:'rgba(0,0,0,0.05)'}},
+        y2:{position:'right',ticks:{font:{size:9},callback:v=>'R$'+(v/1000).toFixed(0)+'k'},grid:{display:false}}
+      }
+    }
   })
 }
 
@@ -705,24 +893,142 @@ function buildAlerta() {
 
 // ── HISTÓRICO ────────────────────────────────────────────────────────────────
 function renderHist() {
-  const meses=AMES==='all'?MONTHS:[AMES]
-  document.getElementById('hist-lbl').textContent=(AMES==='all'?`${MNm(MONTHS[0])} → ${MNm(MONTHS[MONTHS.length-1])}`:MNm(AMES)).toUpperCase()
-  document.getElementById('hist-cards').innerHTML=meses.map(mk=>{
-    const m=BM[mk], cb=m.ent+m.sai, tipo=m.real?'Realizado':m.parcial?'Parcial':'Previsto', cor=m.real?'var(--g)':m.parcial?'var(--am)':'var(--bl)'
-    return `<div class="card" style="margin-bottom:0"><div style="padding:8px 13px;border-bottom:.5px solid var(--bd);display:flex;justify-content:space-between;align-items:center"><span style="font-weight:600;font-size:12px">${MNm(mk).toUpperCase()}</span><span style="font-size:10px;font-weight:600;color:${cor}">${tipo}</span></div><div style="padding:6px 13px;font-size:11px">
-      <div style="display:flex;justify-content:space-between;padding:2px 0;border-bottom:.5px solid var(--bd)"><span style="color:var(--muted)">Saldo Inicial</span><span>${R(m.saldoIni)}</span></div>
-      <div style="display:flex;justify-content:space-between;padding:2px 0;border-bottom:.5px solid var(--bd)"><span style="color:var(--muted)">Entradas</span><span class="pos">${R(m.ent)}</span></div>
-      <div style="display:flex;justify-content:space-between;padding:2px 0;border-bottom:.5px solid var(--bd)"><span style="color:var(--muted)">Saídas</span><span class="neg">${R(Math.abs(m.sai))}</span></div>
-      <div style="display:flex;justify-content:space-between;padding:2px 0;border-bottom:.5px solid var(--bd)"><span style="color:var(--muted)">Resultado</span><span class="${cb>=0?'pos':'neg'}">${R(cb)}</span></div>
-      <div style="display:flex;justify-content:space-between;padding:3px 0;font-weight:600"><span>Saldo Final</span><span class="${m.saldoFim>=0?'pos':'neg'}">${R(m.saldoFim)}</span></div>
-    </div></div>`
+  const meses = AMES==='all' ? MONTHS : [AMES]
+  document.getElementById('hist-lbl').textContent = (AMES==='all'
+    ? `${MNm(MONTHS[0])} → ${MNm(MONTHS[MONTHS.length-1])}` : MNm(AMES)).toUpperCase()
+
+  // Calcula receita, aporte, saída por mês
+  const mesData = meses.map(mk => {
+    const m = BM[mk]
+    const rec = m.txns.filter(isReceita).reduce((s,t)=>s+t.valor,0)
+    const apo = m.txns.filter(isAporte).reduce((s,t)=>s+t.valor,0)
+    const sai = m.txns.filter(t=>t.valor<0).reduce((s,t)=>s+t.valor,0)
+    const res = rec + apo + sai
+    const cb  = rec + sai   // Cash Burn = Receita Clientes - Saídas
+    const tipo = m.real?'Realizado':m.parcial?'Parcial':'Previsto'
+    const cor  = m.real?'var(--g)':m.parcial?'var(--am)':'var(--bl)'
+    return { mk, m, rec, apo, sai, res, cb, tipo, cor }
+  })
+
+  // ── Cards por mês ──────────────────────────────────────────────────────────
+  document.getElementById('hist-cards').innerHTML = mesData.map(({mk,m,rec,apo,sai,res,tipo,cor}) => `
+    <div class="card" style="margin-bottom:0">
+      <div style="padding:8px 13px;border-bottom:.5px solid var(--bd);display:flex;justify-content:space-between;align-items:center">
+        <span style="font-weight:700;font-size:13px">${MNm(mk).toUpperCase()}</span>
+        <span style="font-size:10px;font-weight:600;color:${cor}">${tipo}</span>
+      </div>
+      <div style="padding:6px 13px;font-size:11px">
+        <div style="display:flex;justify-content:space-between;padding:3px 0;border-bottom:.5px solid var(--bd)">
+          <span style="color:var(--muted)">Saldo Inicial</span><span style="font-weight:500">${R(m.saldoIni)}</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;padding:3px 0;border-bottom:.5px solid var(--bd)">
+          <span style="color:var(--g);font-weight:500">↑ Receita Clientes</span><span class="pos" style="font-weight:600">${R(rec)}</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;padding:3px 0;border-bottom:.5px solid var(--bd)">
+          <span style="color:var(--bl);font-weight:500">↑ Aportes</span><span class="info" style="font-weight:600">${R(apo)}</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;padding:3px 0;border-bottom:.5px solid var(--bd)">
+          <span style="color:var(--r);font-weight:500">↓ Saídas</span><span class="neg" style="font-weight:600">${R(Math.abs(sai))}</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;padding:3px 0;border-bottom:.5px solid var(--bd)">
+          <span style="color:var(--am);font-weight:500">≡ Cash Burn</span><span class="${cb>=0?'pos':'neg'}" style="font-weight:700">${R(cb)}</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;padding:3px 0;border-bottom:.5px solid var(--bd)">
+          <span style="color:var(--muted)">Resultado Total</span><span class="${res>=0?'pos':'neg'}" style="font-weight:600">${R(res)}</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;padding:4px 0;font-weight:700;font-size:12px">
+          <span>Saldo Final</span><span class="${m.saldoFim>=0?'pos':'neg'}">${R(m.saldoFim)}</span>
+        </div>
+      </div>
+      <!-- mini barra proporcional -->
+      <div style="padding:0 13px 10px;display:flex;gap:2px;height:6px">
+        ${(rec+apo+Math.abs(sai))>0 ? `
+        <div style="flex:${rec};background:var(--g);border-radius:2px 0 0 2px;opacity:.7" title="Receita ${R(rec)}"></div>
+        <div style="flex:${apo};background:var(--bl);opacity:.7" title="Aporte ${R(apo)}"></div>
+        <div style="flex:${Math.abs(sai)};background:var(--r);border-radius:0 2px 2px 0;opacity:.7" title="Saídas ${R(Math.abs(sai))}"></div>
+        ` : ''}
+      </div>
+    </div>`).join('')
+
+  // ── Tabela consolidada ─────────────────────────────────────────────────────
+  let totRec=0, totApo=0, totSai=0
+  document.getElementById('hist-table-body').innerHTML = mesData.map(({mk,m,rec,apo,sai,res,cb,tipo,cor}) => {
+    totRec+=rec; totApo+=apo; totSai+=sai
+    const resTot = rec+apo+sai
+    return `<tr>
+      <td style="font-weight:600">${MNm(mk).toUpperCase()} <span style="font-size:9px;color:${cor};font-weight:600">${tipo}</span></td>
+      <td>${R(m.saldoIni)}</td>
+      <td class="pos" style="font-weight:600">${rec>0?R(rec):'–'}</td>
+      <td class="info" style="font-weight:600">${apo>0?R(apo):'–'}</td>
+      <td class="neg">${sai<0?R(Math.abs(sai)):'–'}</td>
+      <td class="${cb>=0?'pos':'neg'}" style="font-weight:700">${R(cb)}</td>
+      <td class="${resTot>=0?'pos':'neg'}" style="font-weight:600">${R(resTot)}</td>
+      <td style="font-weight:700" class="${m.saldoFim>=0?'pos':'neg'}">${R(m.saldoFim)}</td>
+      <td><span style="font-size:9px;font-weight:600;color:${cor}">${tipo}</span></td>
+    </tr>`
   }).join('')
-  const pts=[]
-  meses.forEach(mk=>{const m=BM[mk],ir=m.real||m.parcial,dias=Object.entries(m.txns.reduce((a,t)=>{a[PK(t.date)]=t.saldo;return a;},{})).sort((a,b)=>a[0]>b[0]?1:-1);if(!pts.length)pts.push({l:`01/${mk.split('-')[1]}`,v:m.saldoIni,r:ir});dias.forEach(([k,v])=>pts.push({l:new Date(k).toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit'}),v:+v.toFixed(2),r:ir}))})
+
+  // Linha de totais
+  const totCashburn = totRec+totSai   // Cash Burn total = receita - saídas
+  const totCb = totRec+totApo+totSai  // Resultado total inclui aporte
+  const saldoFinal = mesData.length ? mesData[mesData.length-1].m.saldoFim : 0
+  const saldoInicial = mesData.length ? mesData[0].m.saldoIni : 0
+  document.getElementById('hist-table-foot').innerHTML=`<tr style="background:#f0f0f0;font-weight:700;font-size:11px">
+    <td>TOTAL</td>
+    <td>${R(saldoInicial)}</td>
+    <td class="pos">${R(totRec)}</td>
+    <td class="info">${R(totApo)}</td>
+    <td class="neg">${R(Math.abs(totSai))}</td>
+    <td class="${totCashburn>=0?'pos':'neg'}">${R(totCashburn)}</td>
+    <td class="${totCb>=0?'pos':'neg'}">${R(totCb)}</td>
+    <td class="${saldoFinal>=0?'pos':'neg'}">${R(saldoFinal)}</td>
+    <td></td>
+  </tr>`
+
+  document.getElementById('hist-total-badge').textContent =
+    `Receita ${R(totRec)} · Aporte ${R(totApo)} · Cash Burn ${R(totCashburn)} · Saídas ${R(Math.abs(totSai))}`
+
+  // ── Gráfico: saldo + barras separadas por tipo ─────────────────────────────
+  const pts=[], recPts=[], apoPts=[], saiPts=[]
+  meses.forEach(mk=>{
+    const m=BM[mk], ir=m.real||m.parcial
+    const byDay=m.txns.reduce((a,t)=>{
+      const k=PK(t.date)
+      if(!a[k]) a[k]={sal:t.saldo,rec:0,apo:0,sai:0,ir}
+      if(isReceita(t)) a[k].rec+=t.valor
+      else if(isAporte(t)) a[k].apo+=t.valor
+      else if(t.valor<0) a[k].sai+=Math.abs(t.valor)
+      a[k].sal=t.saldo
+      return a
+    },{})
+    if(!pts.length) {
+      pts.push({l:`01/${mk.split('-')[1]}`,v:m.saldoIni,ir})
+      recPts.push(0); apoPts.push(0); saiPts.push(0)
+    }
+    Object.entries(byDay).sort((a,b)=>a[0]>b[0]?1:-1).forEach(([k,d])=>{
+      pts.push({l:new Date(k).toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit'}),v:+d.sal.toFixed(2),ir:d.ir})
+      recPts.push(+d.rec.toFixed(2))
+      apoPts.push(+d.apo.toFixed(2))
+      saiPts.push(+d.sai.toFixed(2))
+    })
+  })
+
   kill('hist')
   CH.hist=new Chart(document.getElementById('c-hist').getContext('2d'),{
-    data:{labels:pts.map(p=>p.l),datasets:[{type:'line',data:pts.map(p=>p.r?p.v:null),borderColor:'#16a34a',borderWidth:2.5,pointRadius:2,fill:false,tension:0.35,spanGaps:false},{type:'line',data:pts.map(p=>!p.r?p.v:null),borderColor:'#2563eb',borderWidth:2,pointRadius:2,fill:false,tension:0.35,spanGaps:false,borderDash:[5,3]}]},
-    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>R(c.parsed.y)}}},scales:{x:{ticks:{font:{size:9},maxRotation:45,autoSkip:true,maxTicksLimit:16},grid:{display:false}},y:{ticks:{font:{size:9},callback:v=>'R$'+(v/1000).toFixed(0)+'k'},grid:{color:'rgba(0,0,0,0.05)'}}}}
+    data:{labels:pts.map(p=>p.l),datasets:[
+      {type:'line',label:'Saldo',data:pts.map(p=>p.v),borderColor:'#E87722',borderWidth:2.5,pointRadius:2,fill:false,tension:0.35,yAxisID:'y'},
+      {type:'bar',label:'Receita',data:recPts,backgroundColor:pts.map(p=>p.ir?'rgba(22,163,74,.65)':'rgba(22,163,74,.3)'),yAxisID:'y2',stack:'s'},
+      {type:'bar',label:'Aporte', data:apoPts,backgroundColor:pts.map(p=>p.ir?'rgba(37,99,235,.6)':'rgba(37,99,235,.25)'),yAxisID:'y2',stack:'s'},
+      {type:'bar',label:'Saídas', data:saiPts,backgroundColor:pts.map(p=>p.ir?'rgba(220,38,38,.55)':'rgba(220,38,38,.25)'),yAxisID:'y2',stack:'s2'}
+    ]},
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>c.dataset.label+': '+R(c.parsed.y)}}},
+      scales:{
+        x:{ticks:{font:{size:9},maxRotation:45,autoSkip:true,maxTicksLimit:16},grid:{display:false}},
+        y:{position:'left',ticks:{font:{size:9},callback:v=>'R$'+(v/1000).toFixed(0)+'k'},grid:{color:'rgba(0,0,0,0.05)'}},
+        y2:{position:'right',ticks:{font:{size:9},callback:v=>'R$'+(v/1000).toFixed(0)+'k'},grid:{display:false}}
+      }
+    }
   })
 }
 
