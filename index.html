@@ -868,9 +868,29 @@ function toggleDetalhe(tipo) {
 }
 
 // ── DASHBOARD ────────────────────────────────────────────────────────────────
+function calcSaldoAtual() {
+  // Saldo de cada conta = saldo do último lançamento real daquela conta
+  const bancosComDados = [...new Set(DATA.filter(isReal).map(t=>t.banco).filter(Boolean))]
+  if(!bancosComDados.length) {
+    // fallback: sem campo banco, usa último lançamento real global
+    const reais = DATA.filter(isReal)
+    return reais.length ? reais[reais.length-1].saldo : SALDO_INICIAL
+  }
+  if(AF.banco) {
+    // filtro de conta ativo: saldo real dessa conta
+    const reais = DATA.filter(t=>isReal(t) && t.banco===AF.banco)
+    return reais.length ? reais[reais.length-1].saldo : 0
+  }
+  // sem filtro: soma do último saldo real de cada conta
+  const saldosPorBanco = {}
+  DATA.filter(isReal).forEach(t => { if(t.banco) saldosPorBanco[t.banco] = t.saldo })
+  const vals = Object.values(saldosPorBanco)
+  return vals.length ? vals.reduce((s,v)=>s+v,0) : DATA.filter(isReal).slice(-1)[0]?.saldo ?? SALDO_INICIAL
+}
+
 function renderDash() {
   const txns=filtTxns(), ini=saldoIni(); if(!txns.length) return
-  const cur=txns[txns.length-1].saldo
+  const cur = calcSaldoAtual()
   const rec = txns.filter(isReceita)
   const apo = txns.filter(isAporte)
   const sai = txns.filter(t=>t.valor<0)
@@ -979,9 +999,11 @@ function buildChartDash(txns, _totRec, _totApo) {
 // ── ALERTA DE LIQUIDEZ ────────────────────────────────────────────────────────
 function buildAlerta() {
   const today=new Date(); today.setHours(0,0,0,0)
-  const realizados=DATA.filter(t=>isReal(t))
-  const saldoBase=realizados.length ? realizados[realizados.length-1].saldo : SALDO_INICIAL
-  const futuros=DATA.filter(t=>isPend(t)&&new Date(t.date)>=today).sort((a,b)=>a.date-b.date)
+  const saldoBase = calcSaldoAtual()  // Usa saldo correto (por conta se filtro ativo)
+  // Futuros: respeita filtro de banco se ativo
+  let futuros = DATA.filter(t=>isPend(t)&&new Date(t.date)>=today)
+  if(AF.banco) futuros = futuros.filter(t=>t.banco===AF.banco)
+  futuros.sort((a,b)=>a.date-b.date)
 
   const byDay={}
   futuros.forEach(t=>{const k=PK(t.date);if(!byDay[k])byDay[k]=[];byDay[k].push(t)})
@@ -1049,42 +1071,70 @@ function buildAlerta() {
 
 // ── SALDO POR BANCO ───────────────────────────────────────────────────────────
 function renderSaldoBancos() {
-  const BANCOS_DEF = ['Inter','Banco do Brasil','Caixa','Outra']
-  const BANCO_COLORS = { 'Inter':'#E87722','Banco do Brasil':'#2563eb','Caixa':'#16a34a','Outra':'#7c3aed' }
-  // Detecta bancos que realmente têm dados
-  const bancosPresentes = [...new Set(DATA.map(t=>t.banco).filter(Boolean))]
+  // Cores por nome de banco (parcial)
+  const BANCO_COLORS_MAP = [
+    ['Inter', '#E87722'],
+    ['Banco do Brasil', '#2563eb'],
+    ['BTG', '#7c3aed'],
+    ['Caixa', '#16a34a'],
+    ['Nubank', '#8b5cf6'],
+  ]
+  const corBanco = b => {
+    for(const [k,c] of BANCO_COLORS_MAP) if(b.toLowerCase().includes(k.toLowerCase())) return c
+    return '#666'
+  }
+
+  // Bancos que existem em DATA
+  const bancosPresentes = [...new Set(DATA.map(t=>t.banco).filter(Boolean))].sort()
   if(!bancosPresentes.length) {
     document.getElementById('card-saldo-bancos').style.display = 'none'
     return
   }
   document.getElementById('card-saldo-bancos').style.display = ''
-  const txns = filtTxns()
-  // Calcula entradas e saídas por banco no período filtrado
+
+  // Saldo real de cada conta = saldo do ÚLTIMO lançamento real (conciliado/quitado) daquela conta
+  // Independente de filtros de mês ou outros filtros
+  const saldosBanco = {}
+  bancosPresentes.forEach(b => {
+    const reais = DATA.filter(t => (isReal(t) || t.sit==='Transferido') && t.banco===b)
+    saldosBanco[b] = reais.length ? reais[reais.length-1].saldo : null
+  })
+
+  // Entradas/saídas no período filtrado (respeita filtros ativos)
+  const txnsFiltradas = filtTxns()
   const byBanco = {}
-  bancosPresentes.forEach(b => byBanco[b] = { ent:0, sai:0, txns:0 })
-  txns.forEach(t => {
-    const b = t.banco || 'Inter'
-    if(!byBanco[b]) byBanco[b] = { ent:0, sai:0, txns:0 }
+  bancosPresentes.forEach(b => byBanco[b] = { ent:0, sai:0, cnt:0 })
+  txnsFiltradas.forEach(t => {
+    const b = t.banco || ''
+    if(!byBanco[b]) byBanco[b] = { ent:0, sai:0, cnt:0 }
     if(t.valor > 0) byBanco[b].ent += t.valor
     else byBanco[b].sai += t.valor
-    byBanco[b].txns++
+    byBanco[b].cnt++
   })
-  // Saldo mais recente por banco (último lançamento conciliado de cada banco)
-  const saldosBanco = {}
-  DATA.filter(isReal).forEach(t => { saldosBanco[t.banco || 'Inter'] = t.saldo })
-  const totalSaldo = Object.values(saldosBanco).reduce((s,v)=>s+v,0)
+
+  // Total = soma dos saldos reais de cada conta
+  const saldosValidos = Object.values(saldosBanco).filter(v=>v!=null)
+  const totalSaldo = saldosValidos.reduce((s,v)=>s+v, 0)
   document.getElementById('bancos-total-badge').textContent = R(totalSaldo)
+
+  // Grid responsivo: 4 por linha se 4+ bancos, senão adaptado
+  const ncols = Math.min(4, bancosPresentes.length)
+  document.getElementById('bancos-grid').style.gridTemplateColumns = `repeat(${ncols},1fr)`
+
   document.getElementById('bancos-grid').innerHTML = bancosPresentes.map(b => {
-    const cor = BANCO_COLORS[b] || '#666'
-    const s = saldosBanco[b] || 0
-    const d = byBanco[b] || {ent:0,sai:0,txns:0}
-    return `<div style="padding:12px 16px;border-right:.5px solid var(--bd);border-left:3px solid ${cor}">
-      <div style="font-size:10px;font-weight:700;color:${cor};text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">${b}</div>
-      <div style="font-size:16px;font-weight:600;color:${s>=0?'var(--text)':'var(--r)'}">${R(s)}</div>
-      <div style="font-size:10px;color:var(--muted);margin-top:4px">${d.txns} lançamentos</div>
-      <div style="display:flex;gap:8px;margin-top:4px;font-size:10px">
-        <span class="pos">↑ ${R(d.ent)}</span>
-        <span class="neg">↓ ${R(Math.abs(d.sai))}</span>
+    const cor = corBanco(b)
+    const s = saldosBanco[b]
+    const d = byBanco[b] || {ent:0,sai:0,cnt:0}
+    const saldoTxt = s != null ? R(s) : '–'
+    const saldoCls = s == null ? '' : s >= 0 ? 'var(--text)' : 'var(--r)'
+    return `<div style="padding:12px 16px;border-right:.5px solid var(--bd);border-bottom:.5px solid var(--bd);border-left:3px solid ${cor}">
+      <div style="font-size:10px;font-weight:700;color:${cor};text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${b}">${b}</div>
+      <div style="font-size:16px;font-weight:600;color:${saldoCls}">${saldoTxt}</div>
+      <div style="font-size:10px;color:var(--muted);margin-top:3px">${d.cnt} lançamentos no período</div>
+      <div style="display:flex;gap:8px;margin-top:3px;font-size:10px">
+        ${d.ent>0?`<span class="pos">↑ ${R(d.ent)}</span>`:''}
+        ${d.sai<0?`<span class="neg">↓ ${R(Math.abs(d.sai))}</span>`:''}
+        ${d.ent===0&&d.sai===0?'<span style="color:var(--muted)">Sem movimento no período</span>':''}
       </div>
     </div>`
   }).join('')
@@ -1094,30 +1144,45 @@ function renderHist() {
   document.getElementById('hist-lbl').textContent = (AMES==='all'
     ? `${MNm(MONTHS[0])} → ${MNm(MONTHS[MONTHS.length-1])}` : MNm(AMES)).toUpperCase()
 
-  // Calcula receita, aporte, saída por mês
+  // Calcula por mês aplicando filtros avançados (exceto filtro de mês)
+  const txnsFiltBase = () => {
+    let txns = DATA
+    if(AF.banco) txns = txns.filter(t=>t.banco===AF.banco)
+    if(AF.cat)   txns = txns.filter(t=>t.cat===AF.cat)
+    if(AF.cc)    txns = txns.filter(t=>t.cc===AF.cc)
+    if(AF.nome)  txns = txns.filter(t=>t.nome===AF.nome)
+    if(AF.d1)    txns = txns.filter(t=>PK(t.date)>=AF.d1)
+    if(AF.d2)    txns = txns.filter(t=>PK(t.date)<=AF.d2)
+    return txns
+  }
+
   const mesData = meses.map(mk => {
     const m = BM[mk]
-    const rec = m.txns.filter(isReceita).reduce((s,t)=>s+t.valor,0)
-    const apo = m.txns.filter(isAporte).reduce((s,t)=>s+t.valor,0)
-    const sai = m.txns.filter(t=>t.valor<0).reduce((s,t)=>s+t.valor,0)
+    const txnsMes = txnsFiltBase().filter(t=>MK(t.date)===mk)
+    const rec = txnsMes.filter(isReceita).reduce((s,t)=>s+t.valor,0)
+    const apo = txnsMes.filter(isAporte).reduce((s,t)=>s+t.valor,0)
+    const sai = txnsMes.filter(t=>t.valor<0).reduce((s,t)=>s+t.valor,0)
     const res = rec + apo + sai
-    const cb  = rec + sai   // Cash Burn = Receita Clientes - Saídas
+    const cb  = rec + sai
     const tipo = m.real?'Realizado':m.parcial?'Parcial':'Previsto'
     const cor  = m.real?'var(--g)':m.parcial?'var(--am)':'var(--bl)'
-    return { mk, m, rec, apo, sai, res, cb, tipo, cor }
+    // saldoFim: se tem filtro de banco, usar saldo real desse banco; senão usar global
+    const saldoFim = AF.banco
+      ? (DATA.filter(t=>(isReal(t)||t.sit==='Transferido')&&t.banco===AF.banco&&MK(t.date)===mk).slice(-1)[0]?.saldo ?? null)
+      : m.saldoFim
+    const saldoIniVal = AF.banco ? null : m.saldoIni  // não temos saldo inicial por conta isolada
+    return { mk, m, rec, apo, sai, res, cb, tipo, cor, saldoFim, saldoIniVal }
   })
 
   // ── Cards por mês ──────────────────────────────────────────────────────────
-  document.getElementById('hist-cards').innerHTML = mesData.map(({mk,m,rec,apo,sai,res,cb,tipo,cor}) => `
+  document.getElementById('hist-cards').innerHTML = mesData.map(({mk,m,rec,apo,sai,res,cb,tipo,cor,saldoFim,saldoIniVal}) => `
     <div class="card" style="margin-bottom:0">
       <div style="padding:8px 13px;border-bottom:.5px solid var(--bd);display:flex;justify-content:space-between;align-items:center">
         <span style="font-weight:700;font-size:13px">${MNm(mk).toUpperCase()}</span>
         <span style="font-size:10px;font-weight:600;color:${cor}">${tipo}</span>
       </div>
       <div style="padding:6px 13px;font-size:11px">
-        <div style="display:flex;justify-content:space-between;padding:3px 0;border-bottom:.5px solid var(--bd)">
-          <span style="color:var(--muted)">Saldo Inicial</span><span style="font-weight:500">${R(m.saldoIni)}</span>
-        </div>
+        ${saldoIniVal!=null?`<div style="display:flex;justify-content:space-between;padding:3px 0;border-bottom:.5px solid var(--bd)"><span style="color:var(--muted)">Saldo Inicial</span><span style="font-weight:500">${R(saldoIniVal)}</span></div>`:''}
         <div style="display:flex;justify-content:space-between;padding:3px 0;border-bottom:.5px solid var(--bd)">
           <span style="color:var(--g);font-weight:500">↑ Receita Clientes</span><span class="pos" style="font-weight:600">${R(rec)}</span>
         </div>
@@ -1133,11 +1198,8 @@ function renderHist() {
         <div style="display:flex;justify-content:space-between;padding:3px 0;border-bottom:.5px solid var(--bd)">
           <span style="color:var(--muted)">Resultado Total</span><span class="${res>=0?'pos':'neg'}" style="font-weight:600">${R(res)}</span>
         </div>
-        <div style="display:flex;justify-content:space-between;padding:4px 0;font-weight:700;font-size:12px">
-          <span>Saldo Final</span><span class="${m.saldoFim>=0?'pos':'neg'}">${R(m.saldoFim)}</span>
-        </div>
+        ${saldoFim!=null?`<div style="display:flex;justify-content:space-between;padding:4px 0;font-weight:700;font-size:12px"><span>Saldo Final</span><span class="${saldoFim>=0?'pos':'neg'}">${R(saldoFim)}</span></div>`:''}
       </div>
-      <!-- mini barra proporcional -->
       <div style="padding:0 13px 10px;display:flex;gap:2px;height:6px">
         ${(rec+apo+Math.abs(sai))>0 ? `
         <div style="flex:${rec};background:var(--g);border-radius:2px 0 0 2px;opacity:.7" title="Receita ${R(rec)}"></div>
@@ -1149,36 +1211,36 @@ function renderHist() {
 
   // ── Tabela consolidada ─────────────────────────────────────────────────────
   let totRec=0, totApo=0, totSai=0
-  document.getElementById('hist-table-body').innerHTML = mesData.map(({mk,m,rec,apo,sai,res,cb,tipo,cor}) => {
+  document.getElementById('hist-table-body').innerHTML = mesData.map(({mk,m,rec,apo,sai,res,cb,tipo,cor,saldoFim,saldoIniVal}) => {
     totRec+=rec; totApo+=apo; totSai+=sai
     const resTot = rec+apo+sai
     return `<tr>
       <td style="font-weight:600">${MNm(mk).toUpperCase()} <span style="font-size:9px;color:${cor};font-weight:600">${tipo}</span></td>
-      <td>${R(m.saldoIni)}</td>
+      <td>${saldoIniVal!=null?R(saldoIniVal):'–'}</td>
       <td class="pos" style="font-weight:600">${rec>0?R(rec):'–'}</td>
       <td class="info" style="font-weight:600">${apo>0?R(apo):'–'}</td>
       <td class="neg">${sai<0?R(Math.abs(sai)):'–'}</td>
       <td class="${cb>=0?'pos':'neg'}" style="font-weight:700">${R(cb)}</td>
       <td class="${resTot>=0?'pos':'neg'}" style="font-weight:600">${R(resTot)}</td>
-      <td style="font-weight:700" class="${m.saldoFim>=0?'pos':'neg'}">${R(m.saldoFim)}</td>
+      <td style="font-weight:700" class="${saldoFim!=null?(saldoFim>=0?'pos':'neg'):''}">  ${saldoFim!=null?R(saldoFim):'–'}</td>
       <td><span style="font-size:9px;font-weight:600;color:${cor}">${tipo}</span></td>
     </tr>`
   }).join('')
 
   // Linha de totais
-  const totCashburn = totRec+totSai   // Cash Burn total = receita - saídas
-  const totCb = totRec+totApo+totSai  // Resultado total inclui aporte
-  const saldoFinal = mesData.length ? mesData[mesData.length-1].m.saldoFim : 0
-  const saldoInicial = mesData.length ? mesData[0].m.saldoIni : 0
+  const totCashburn = totRec+totSai
+  const totCb = totRec+totApo+totSai
+  const saldoFinalTot = mesData.length ? mesData[mesData.length-1].saldoFim : null
+  const saldoInicialTot = mesData.length ? mesData[0].saldoIniVal : null
   document.getElementById('hist-table-foot').innerHTML=`<tr style="background:#f0f0f0;font-weight:700;font-size:11px">
     <td>TOTAL</td>
-    <td>${R(saldoInicial)}</td>
+    <td>${saldoInicialTot!=null?R(saldoInicialTot):'–'}</td>
     <td class="pos">${R(totRec)}</td>
     <td class="info">${R(totApo)}</td>
     <td class="neg">${R(Math.abs(totSai))}</td>
     <td class="${totCashburn>=0?'pos':'neg'}">${R(totCashburn)}</td>
     <td class="${totCb>=0?'pos':'neg'}">${R(totCb)}</td>
-    <td class="${saldoFinal>=0?'pos':'neg'}">${R(saldoFinal)}</td>
+    <td class="${saldoFinalTot!=null?(saldoFinalTot>=0?'pos':'neg'):''}">${saldoFinalTot!=null?R(saldoFinalTot):'–'}</td>
     <td></td>
   </tr>`
 
@@ -1235,10 +1297,16 @@ function renderDiario() {
   const meses=AMES==='all'?MONTHS:[AMES]
   document.getElementById('diario-tit').textContent='Caixa Diário — '+(AMES==='all'?'Todos os Meses':MNm(AMES).toUpperCase())
   let rows=[]
+  const txnsFilt = filtTxns()  // respeita todos os filtros
   meses.forEach(mk=>{
-    const[y,mo]=mk.split('-'), ini=new Date(+y,+mo-1,1), fim=new Date(+y,+mo,0), m=BM[mk]
-    const byDay={}; m.txns.forEach(t=>{const k=PK(t.date);if(!byDay[k])byDay[k]={e:0,s:0,sal:t.saldo,sit:t.sit};if(t.valor>0)byDay[k].e+=t.valor;else byDay[k].s+=t.valor;byDay[k].sal=t.saldo;byDay[k].sit=byDay[k].sit==='Em aberto'?'Em aberto':t.sit})
-    let ps=m.saldoIni
+    const[y,mo]=mk.split('-'), ini=new Date(+y,+mo-1,1), fim=new Date(+y,+mo,0)
+    const txnsMes = txnsFilt.filter(t=>MK(t.date)===mk)
+    const byDay={}
+    txnsMes.forEach(t=>{const k=PK(t.date);if(!byDay[k])byDay[k]={e:0,s:0,sal:t.saldo,sit:t.sit};if(t.valor>0)byDay[k].e+=t.valor;else byDay[k].s+=t.valor;byDay[k].sal=t.saldo;byDay[k].sit=byDay[k].sit==='Em aberto'?'Em aberto':t.sit})
+    const m=BM[mk]
+    let ps = AF.banco
+      ? (DATA.filter(t=>(isReal(t)||t.sit==='Transferido')&&t.banco===AF.banco&&MK(t.date)<mk).slice(-1)[0]?.saldo ?? 0)
+      : m.saldoIni
     for(let d=new Date(ini);d<=fim;d.setDate(d.getDate()+1)){const k=PK(new Date(d));if(byDay[k]){ps=byDay[k].sal;rows.push({k,date:new Date(d),...byDay[k],tipo:'mov'})}else rows.push({k,date:new Date(d),e:0,s:0,sal:ps,sit:'',tipo:'vazio'})}
   })
   document.getElementById('diario-cnt').textContent=rows.filter(r=>r.tipo==='mov').length+' dias com movimento'
@@ -1322,7 +1390,18 @@ function buildChartDesp() {
   const cats=['Salários','Aluguel/Util','Tecnologia','Impostos','Serviços Terc.','Outros']
   const catMap=t=>{const c=t.cat.toLowerCase();if(c.includes('salário')||c.includes('encargo'))return 'Salários';if(c.includes('aluguel')||c.includes('utilidade'))return 'Aluguel/Util';if(c.includes('manutenção')||c.includes('sistema'))return 'Tecnologia';if(c.includes('imposto')||c.includes('icms')||c.includes('das'))return 'Impostos';if(c.includes('serviços de terceiros'))return 'Serviços Terc.';return 'Outros';}
   const meses=AMES==='all'?MONTHS:[AMES]
-  const datasets=cats.map((cat,i)=>({label:cat,data:meses.map(mk=>Math.abs(BM[mk].txns.filter(t=>t.valor<0&&catMap(t)===cat).reduce((s,t)=>s+t.valor,0))),backgroundColor:CORES[i]+'99',borderColor:CORES[i],borderWidth:1,stack:'s'}))
+  // Aplica filtros avançados por mês
+  const txnsFiltBase = () => {
+    let txns = DATA
+    if(AF.banco) txns = txns.filter(t=>t.banco===AF.banco)
+    if(AF.cat)   txns = txns.filter(t=>t.cat===AF.cat)
+    if(AF.cc)    txns = txns.filter(t=>t.cc===AF.cc)
+    if(AF.nome)  txns = txns.filter(t=>t.nome===AF.nome)
+    if(AF.d1)    txns = txns.filter(t=>PK(t.date)>=AF.d1)
+    if(AF.d2)    txns = txns.filter(t=>PK(t.date)<=AF.d2)
+    return txns
+  }
+  const datasets=cats.map((cat,i)=>({label:cat,data:meses.map(mk=>Math.abs(txnsFiltBase().filter(t=>MK(t.date)===mk&&t.valor<0&&catMap(t)===cat).reduce((s,t)=>s+t.valor,0))),backgroundColor:CORES[i]+'99',borderColor:CORES[i],borderWidth:1,stack:'s'}))
   kill('desp')
   CH.desp=new Chart(document.getElementById('c-desp').getContext('2d'),{type:'bar',data:{labels:meses.map(mk=>MNm(mk).toUpperCase()),datasets},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>c.dataset.label+': '+R(c.parsed.y)}}},scales:{x:{ticks:{font:{size:9}},grid:{display:false},stacked:true},y:{ticks:{font:{size:9},callback:v=>'R$'+(v/1000).toFixed(0)+'k'},grid:{color:'rgba(0,0,0,0.05)'},stacked:true}}}})
   document.getElementById('desp-lgd').innerHTML=cats.map((c,i)=>`<span><span class="ld" style="background:${CORES[i]}"></span>${c}</span>`).join('')
