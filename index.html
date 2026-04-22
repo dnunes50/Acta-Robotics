@@ -246,13 +246,7 @@
 <div class="afbar" id="afbar">
   <span class="afl">Filtros:</span>
   <div class="af-label">Conta:</div>
-  <select class="af-select" id="af-banco" onchange="applyFilters()">
-    <option value="">Todas as contas</option>
-    <option value="Inter">Inter</option>
-    <option value="Banco do Brasil">Banco do Brasil</option>
-    <option value="Caixa">Caixa (espécie)</option>
-    <option value="Outra">Outra</option>
-  </select>
+  <select class="af-select" id="af-banco" onchange="applyFilters()"><option value="">Todas as contas</option></select>
   <div class="af-separator"></div>
   <div class="af-label">Categoria:</div>
   <select class="af-select" id="af-cat" onchange="applyFilters()"><option value="">Todas</option></select>
@@ -516,8 +510,8 @@
       <tbody id="prev-body"></tbody></table>
     </div>
     <div style="padding:10px 14px;border-top:.5px solid var(--bd);display:flex;gap:8px;justify-content:flex-end;align-items:center">
-      <span style="font-size:11px;color:var(--muted)">Conta bancária deste extrato:</span>
-      <select id="imp-banco" style="font-size:11px;padding:3px 8px;border:.5px solid var(--bd);border-radius:6px;background:var(--surface);outline:none">
+      <span id="imp-banco-label" style="font-size:11px;color:var(--muted)">Conta bancária deste extrato:</span>
+      <select id="imp-banco-div" style="font-size:11px;padding:3px 8px;border:.5px solid var(--bd);border-radius:6px;background:var(--surface);outline:none">
         <option value="Inter">Inter</option>
         <option value="Banco do Brasil">Banco do Brasil</option>
         <option value="Caixa">Caixa (espécie)</option>
@@ -709,16 +703,18 @@ function updateFilterUI() {
 }
 
 function populateFilterDropdowns() {
-  const cats  = [...new Set(DATA.map(t=>t.cat).filter(v=>v&&v!=='–'))].sort()
-  const ccs   = [...new Set(DATA.map(t=>t.cc).filter(v=>v&&v!=='–'))].sort()
-  const nomes = [...new Set(DATA.map(t=>t.nome).filter(Boolean))].sort()
-  const fill  = (id, opts, cur) => {
+  const bancos = [...new Set(DATA.map(t=>t.banco).filter(Boolean))].sort()
+  const cats   = [...new Set(DATA.map(t=>t.cat).filter(v=>v&&v!=='–'))].sort()
+  const ccs    = [...new Set(DATA.map(t=>t.cc).filter(v=>v&&v!=='–'))].sort()
+  const nomes  = [...new Set(DATA.map(t=>t.nome).filter(Boolean))].sort()
+  const fill   = (id, opts, cur, placeholder) => {
     const el = document.getElementById(id)
-    el.innerHTML = '<option value="">Todos</option>' + opts.map(v=>`<option value="${v}"${v===cur?' selected':''}>${v}</option>`).join('')
+    el.innerHTML = `<option value="">${placeholder}</option>` + opts.map(v=>`<option value="${v}"${v===cur?' selected':''}>${v}</option>`).join('')
   }
-  fill('af-cat',  cats,  AF.cat)
-  fill('af-cc',   ccs,   AF.cc)
-  fill('af-nome', nomes, AF.nome)
+  fill('af-banco', bancos, AF.banco, 'Todas as contas')
+  fill('af-cat',   cats,   AF.cat,   'Todas')
+  fill('af-cc',    ccs,    AF.cc,    'Todos')
+  fill('af-nome',  nomes,  AF.nome,  'Todos')
 }
 
 const filtTxns = () => {
@@ -757,7 +753,7 @@ function doImport(inp) {
       const idx = kws => h.findIndex(x=>kws.some(k=>x.toLowerCase().includes(k)))
       const cD=idx(['data movimento','data']), cN=idx(['nome do fornec']), cDesc=idx(['descrição']),
             cT=idx(['tipo']), cV=idx(['valor (r$)']), cS=idx(['saldo conta']), cSt=idx(['situa']),
-            cCat=idx(['categoria 1']), cCC=idx(['centro de custo 1']), cBanco=idx(['banco','conta bancaria','conta bancária'])
+            cCat=idx(['categoria 1']), cCC=idx(['centro de custo 1']), cBanco=idx(['conta bancária','conta bancaria','banco'])
       const recs = []
       for(let i=hi+1;i<rows.length;i++){
         const r=rows[i]; if(!r||!r[cD]) continue
@@ -765,11 +761,26 @@ function doImport(inp) {
         const s = typeof r[cS]==='number' ? r[cS] : parseFloat(String(r[cS]||'').replace(/[R$\s]/g,'').replace(/\./g,'').replace(',','.'))||0
         const d = DK(r[cD]); if(!d||isNaN(d.getTime())) continue
         if(v===0&&s===0) continue
-        recs.push({date:d, nome:String(r[cN]||''), desc:String(r[cDesc]||r[cN]||''), tipo:String(r[cT]||''), valor:v, saldo:s, sit:String(r[cSt]||''), cat:String(r[cCat]||'–'), cc:String(r[cCC]||'–'), banco:cBanco>=0?String(r[cBanco]||'Inter'):'Inter'})
+        recs.push({date:d, nome:String(r[cN]||''), desc:String(r[cDesc]||r[cN]||''), tipo:String(r[cT]||''), valor:v, saldo:s, sit:String(r[cSt]||''), cat:String(r[cCat]||'–'), cc:String(r[cCC]||'–'), banco:cBanco>=0?String(r[cBanco]||''):'', _bancoDetectado:cBanco>=0})
       }
       if(!recs.length){st.innerHTML='<span style="color:var(--r)">Nenhum dado reconhecido. Verifique o arquivo.</span>';return}
       recs.sort((a,b)=>a.date-b.date)
       PENDING = recs
+      // Mostra/oculta seletor manual de banco
+      const bancosDetectados = [...new Set(recs.map(t=>t.banco).filter(Boolean))]
+      const bancoManualDiv = document.getElementById('imp-banco-div')
+      const bancoLabel = document.getElementById('imp-banco-label')
+      const autoDetectado = bancosDetectados.length > 0
+      bancoManualDiv.style.display = autoDetectado ? 'none' : 'inline-block'
+      bancoLabel.style.display = autoDetectado ? 'none' : 'inline'
+      if(autoDetectado) {
+        bancoLabel.textContent = `✓ Conta detectada automaticamente: ${bancosDetectados.slice(0,3).join(', ')}${bancosDetectados.length>3?' +'+( bancosDetectados.length-3)+' mais':''}`
+        bancoLabel.style.display = 'inline'
+        bancoLabel.style.color = 'var(--g)'
+      } else {
+        bancoLabel.textContent = 'Conta bancária deste extrato:'
+        bancoLabel.style.color = 'var(--muted)'
+      }
       document.getElementById('prev-card').style.display='block'
       document.getElementById('prev-cnt').textContent = recs.length+' registros'
       document.getElementById('prev-body').innerHTML = recs.slice(0,20).map(t=>
@@ -789,7 +800,7 @@ async function confirmImp() {
   saving.style.display = 'inline'
 
   // Aplica conta bancária manual para registros sem banco definido
-  const bancoPadrao = document.getElementById('imp-banco')?.value || 'Inter'
+  const bancoPadrao = document.getElementById('imp-banco-div')?.value || 'Inter'
   PENDING.forEach(t => { if(!t.banco || t.banco === 'Inter' && !t._bancoDetectado) t.banco = bancoPadrao })
 
   try {
