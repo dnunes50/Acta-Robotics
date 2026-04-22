@@ -765,7 +765,11 @@ const filtTxns = () => {
   if(AF.d2)    txns = txns.filter(t=>PK(t.date)<=AF.d2)
   return txns
 }
-const saldoIni = () => AMES==='all' ? SALDO_INICIAL : (BM[AMES]?.saldoIni ?? SALDO_INICIAL)
+const saldoIni = () => {
+  if (AF.banco) return SALDOS_INICIAIS[AF.banco] ?? 0
+  if (AMES === 'all') return SALDO_INICIAL
+  return BM[AMES]?.saldoIni ?? SALDO_INICIAL
+}
 
 function refresh() {
   if(CPG==='dash') renderDash()
@@ -1200,6 +1204,9 @@ function renderHist() {
     return txns
   }
 
+  // Para filtro de banco: calcula saldo acumulado por mês
+  let saldoCorrenteBanco = AF.banco ? (SALDOS_INICIAIS[AF.banco] ?? null) : null
+
   const mesData = meses.map(mk => {
     const m = BM[mk]
     const txnsMes = txnsFiltBase().filter(t=>MK(t.date)===mk)
@@ -1210,9 +1217,18 @@ function renderHist() {
     const cb  = rec + sai
     const tipo = m.real?'Realizado':m.parcial?'Parcial':'Previsto'
     const cor  = m.real?'var(--g)':m.parcial?'var(--am)':'var(--bl)'
-    // saldoFim e saldoIni são sempre globais (saldo_conta = consolidado de todas as contas)
-    const saldoFim = m.saldoFim
-    const saldoIniVal = m.saldoIni
+
+    let saldoFim, saldoIniVal
+    if (AF.banco && saldoCorrenteBanco !== null) {
+      // Calcula saldo por conta: acumulado mês a mês
+      saldoIniVal = saldoCorrenteBanco
+      const movMes = txnsMes.filter(t=>isReal(t)||t.sit==='Transferido').reduce((s,t)=>s+t.valor,0)
+      saldoCorrenteBanco = saldoCorrenteBanco + movMes
+      saldoFim = saldoCorrenteBanco
+    } else {
+      saldoFim = m.saldoFim
+      saldoIniVal = m.saldoIni
+    }
     return { mk, m, rec, apo, sai, res, cb, tipo, cor, saldoFim, saldoIniVal }
   })
 
