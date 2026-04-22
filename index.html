@@ -1208,8 +1208,12 @@ function renderHist() {
     return txns
   }
 
-  // Para filtro de banco: calcula saldo acumulado por mês
-  let saldoCorrenteBanco = AF.banco ? (SALDOS_INICIAIS[AF.banco] ?? null) : null
+  // Calcula saldo corrente acumulado mês a mês
+  const temConfigTotal = Object.keys(SALDOS_INICIAIS).length > 0
+  const saldoIniTotal = temConfigTotal ? Object.values(SALDOS_INICIAIS).reduce((s,v)=>s+v,0) : null
+  let saldoCorrente = AF.banco
+    ? (SALDOS_INICIAIS[AF.banco] ?? null)
+    : saldoIniTotal  // soma de todos os saldos iniciais
 
   const mesData = meses.map(mk => {
     const m = BM[mk]
@@ -1223,13 +1227,14 @@ function renderHist() {
     const cor  = m.real?'var(--g)':m.parcial?'var(--am)':'var(--bl)'
 
     let saldoFim, saldoIniVal
-    if (AF.banco && saldoCorrenteBanco !== null) {
-      // Calcula saldo por conta: acumulado mês a mês
-      saldoIniVal = saldoCorrenteBanco
+    if (saldoCorrente !== null) {
+      // Tem configuração: calcula acumulado mês a mês
+      saldoIniVal = saldoCorrente
       const movMes = txnsMes.filter(t=>isReal(t)||t.sit==='Transferido').reduce((s,t)=>s+t.valor,0)
-      saldoCorrenteBanco = saldoCorrenteBanco + movMes
-      saldoFim = saldoCorrenteBanco
+      saldoCorrente = saldoCorrente + movMes
+      saldoFim = saldoCorrente
     } else {
+      // Sem configuração: usa saldo_conta global do Conta Azul
       saldoFim = m.saldoFim
       saldoIniVal = m.saldoIni
     }
@@ -1359,15 +1364,44 @@ function renderDiario() {
   const meses=AMES==='all'?MONTHS:[AMES]
   document.getElementById('diario-tit').textContent='Caixa Diário — '+(AMES==='all'?'Todos os Meses':MNm(AMES).toUpperCase())
   let rows=[]
-  const txnsFilt = filtTxns()  // respeita todos os filtros
+  // Calcula saldo inicial correto para o primeiro mês (acumulado por conta se configurado)
+  const temConfig = Object.keys(SALDOS_INICIAIS).length > 0
+  const saldoIniBase = AF.banco
+    ? (SALDOS_INICIAIS[AF.banco] ?? null)
+    : temConfig ? Object.values(SALDOS_INICIAIS).reduce((s,v)=>s+v,0) : null
+
+  // Acumula saldo mês a mês para dias sem movimento
+  let saldoMesAnterior = saldoIniBase
+
+  const txnsFilt = filtTxns()
   meses.forEach(mk=>{
     const[y,mo]=mk.split('-'), ini=new Date(+y,+mo-1,1), fim=new Date(+y,+mo,0)
     const txnsMes = txnsFilt.filter(t=>MK(t.date)===mk)
     const byDay={}
     txnsMes.forEach(t=>{const k=PK(t.date);if(!byDay[k])byDay[k]={e:0,s:0,sal:t.saldo,sit:t.sit};if(t.valor>0)byDay[k].e+=t.valor;else byDay[k].s+=t.valor;byDay[k].sal=t.saldo;byDay[k].sit=byDay[k].sit==='Em aberto'?'Em aberto':t.sit})
     const m=BM[mk]
-    let ps = m.saldoIni
-    for(let d=new Date(ini);d<=fim;d.setDate(d.getDate()+1)){const k=PK(new Date(d));if(byDay[k]){ps=byDay[k].sal;rows.push({k,date:new Date(d),...byDay[k],tipo:'mov'})}else rows.push({k,date:new Date(d),e:0,s:0,sal:ps,sit:'',tipo:'vazio'})}
+    // ps: saldo inicial do mês — usa calculado se tem config, senão usa global
+    let ps = saldoMesAnterior !== null ? saldoMesAnterior : m.saldoIni
+    for(let d=new Date(ini);d<=fim;d.setDate(d.getDate()+1)){
+      const k=PK(new Date(d))
+      if(byDay[k]){
+        // Para dias com movimento: se tem config, recalcula o saldo do dia
+        if(saldoMesAnterior !== null) {
+          ps = ps + byDay[k].e + byDay[k].s
+          byDay[k] = {...byDay[k], sal: ps}
+        } else {
+          ps = byDay[k].sal
+        }
+        rows.push({k,date:new Date(d),...byDay[k],sal:ps,tipo:'mov'})
+      } else {
+        rows.push({k,date:new Date(d),e:0,s:0,sal:ps,sit:'',tipo:'vazio'})
+      }
+    }
+    // Atualiza saldo para próximo mês
+    if(saldoMesAnterior !== null) {
+      const movReal = txnsMes.filter(t=>isReal(t)||t.sit==='Transferido').reduce((s,t)=>s+t.valor,0)
+      saldoMesAnterior = (saldoMesAnterior !== null ? saldoMesAnterior : m.saldoIni) + movReal
+    }
   })
   document.getElementById('diario-cnt').textContent=rows.filter(r=>r.tipo==='mov').length+' dias com movimento'
   document.getElementById('diario-body').innerHTML=rows.map(r=>{
