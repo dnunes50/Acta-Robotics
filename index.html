@@ -257,7 +257,9 @@
   <div class="af-label">Fornecedor/Cliente:</div>
   <select class="af-select" id="af-nome" onchange="applyFilters()"><option value="">Todos</option></select>
   <div class="af-separator"></div>
-  <div class="af-label">De:</div>
+  <div class="af-label">Grupo:</div>
+  <select class="af-select" id="af-grupo" onchange="applyFilters()"><option value="">Todos os grupos</option></select>
+  <div class="af-separator"></div>
   <input class="af-input" id="af-d1" type="date" onchange="applyFilters()">
   <div class="af-label">Até:</div>
   <input class="af-input" id="af-d2" type="date" onchange="applyFilters()">
@@ -615,7 +617,19 @@ const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY)
 let DATA=[], PENDING=[], CH={}
 let MONTHS=[], BM={}
 let AMES='all', CPG='dash', DESP_SEG='cat'
-let AF = { banco:'', cat:'', cc:'', nome:'', d1:'', d2:'' }
+let AF = { banco:'', cat:'', cc:'', nome:'', grupo:'', d1:'', d2:'' }
+
+// ── GRUPOS DRE (definidos cedo para uso nos filtros) ─────────────────────────
+const DRE_GRUPOS = [
+  { id:'pessoal',    label:'Pessoal',                  cor:'#7c3aed', match: c => /9\.1\.1|9\.2\.1|9\.3\.1|9\.3\.2/i.test(c) },
+  { id:'pd',         label:'P&D / Tecnologia',          cor:'#2563eb', match: c => /9\.3\.3|9\.3\.4|9\.3\.5|9\.3\.13/i.test(c) },
+  { id:'cogs',       label:'Custo do Serviço (COGS)',   cor:'#0891b2', match: c => /8\.1\.1|8\.2\.3|8\.2\.4|8\.2\.6/i.test(c) },
+  { id:'comercial',  label:'Comercial / Marketing',     cor:'#E87722', match: c => /9\.1\.3|9\.1\.4|9\.1\.5|9\.1\.6|8\.2\.11/i.test(c) },
+  { id:'ga',         label:'G&A (Administrativo)',      cor:'#d97706', match: c => /9\.2\.3|9\.2\.4|9\.2\.5|9\.2\.6|9\.2\.8/i.test(c) },
+  { id:'impostos',   label:'Impostos',                  cor:'#dc2626', match: c => /5\.4/i.test(c) },
+  { id:'financeiro', label:'Financeiro',                cor:'#64748b', match: c => /10\.5/i.test(c) },
+  { id:'outras',     label:'Outras Despesas',           cor:'#94a3b8', match: c => /11\.2/i.test(c) },
+]
 let SALDOS_INICIAIS = {}  // { 'Inter - Acta': 12345.00, ... }
 
 // ── UTIL ─────────────────────────────────────────────────────────────────────
@@ -745,6 +759,7 @@ function applyFilters() {
   AF.cat   = document.getElementById('af-cat').value
   AF.cc    = document.getElementById('af-cc').value
   AF.nome  = document.getElementById('af-nome').value
+  AF.grupo = document.getElementById('af-grupo').value
   AF.d1    = document.getElementById('af-d1').value
   AF.d2    = document.getElementById('af-d2').value
   updateFilterUI()
@@ -752,11 +767,12 @@ function applyFilters() {
 }
 
 function clearFilters() {
-  AF = { banco:'', cat:'', cc:'', nome:'', d1:'', d2:'' }
+  AF = { banco:'', cat:'', cc:'', nome:'', grupo:'', d1:'', d2:'' }
   document.getElementById('af-banco').value = ''
   document.getElementById('af-cat').value = ''
   document.getElementById('af-cc').value = ''
   document.getElementById('af-nome').value = ''
+  document.getElementById('af-grupo').value = ''
   document.getElementById('af-d1').value = ''
   document.getElementById('af-d2').value = ''
   updateFilterUI()
@@ -777,7 +793,7 @@ function updateFilterUI() {
     clearBtn.style.display = 'none'
   }
   // Highlight active selects
-  ;['af-banco','af-cat','af-cc','af-nome'].forEach(id => {
+  ;['af-banco','af-cat','af-cc','af-nome','af-grupo'].forEach(id => {
     const el = document.getElementById(id)
     el.classList.toggle('active', !!el.value)
   })
@@ -800,6 +816,10 @@ function populateFilterDropdowns() {
   fill('af-cat',   cats,   AF.cat,   'Todas')
   fill('af-cc',    ccs,    AF.cc,    'Todos')
   fill('af-nome',  nomes,  AF.nome,  'Todos')
+  // Grupo DRE — fixo, baseado em DRE_GRUPOS
+  const elGrupo = document.getElementById('af-grupo')
+  elGrupo.innerHTML = '<option value="">Todos os grupos</option>' +
+    DRE_GRUPOS.map(g=>`<option value="${g.id}"${g.id===AF.grupo?' selected':''}>${g.label}</option>`).join('')
 }
 
 const filtTxns = () => {
@@ -808,6 +828,11 @@ const filtTxns = () => {
   if(AF.cat)   txns = txns.filter(t=>t.cat===AF.cat)
   if(AF.cc)    txns = txns.filter(t=>t.cc===AF.cc)
   if(AF.nome)  txns = txns.filter(t=>t.nome===AF.nome)
+  if(AF.grupo) txns = txns.filter(t=>{
+    if(t.valor >= 0) return true  // receitas sempre passam
+    const g = DRE_GRUPOS.find(g=>g.id===AF.grupo)
+    return g ? g.match(t.cat||'') : true
+  })
   if(AF.d1)    txns = txns.filter(t=>PK(t.date)>=AF.d1)
   if(AF.d2)    txns = txns.filter(t=>PK(t.date)<=AF.d2)
   return txns
@@ -1550,42 +1575,6 @@ function buildChartDesp() {
 }
 
 // ── DRE ──────────────────────────────────────────────────────────────────────
-
-// Mapeamento de grupos DRE — categorias → grupo
-const DRE_GRUPOS = [
-  {
-    id: 'pessoal', label: 'Pessoal', cor: '#7c3aed',
-    match: c => /9\.1\.1|9\.2\.1|9\.3\.1|9\.3\.2/i.test(c)
-  },
-  {
-    id: 'pd', label: 'P&D / Tecnologia', cor: '#2563eb',
-    match: c => /9\.3\.3|9\.3\.4|9\.3\.5|9\.3\.13/i.test(c)
-  },
-  {
-    id: 'cogs', label: 'Custo do Serviço (COGS)', cor: '#0891b2',
-    match: c => /8\.1\.1|8\.2\.3|8\.2\.4|8\.2\.6/i.test(c)
-  },
-  {
-    id: 'comercial', label: 'Comercial / Marketing', cor: '#E87722',
-    match: c => /9\.1\.3|9\.1\.4|9\.1\.5|9\.1\.6|8\.2\.11/i.test(c)
-  },
-  {
-    id: 'ga', label: 'G&A (Administrativo)', cor: '#d97706',
-    match: c => /9\.2\.3|9\.2\.4|9\.2\.5|9\.2\.6|9\.2\.8/i.test(c)
-  },
-  {
-    id: 'impostos', label: 'Impostos', cor: '#dc2626',
-    match: c => /5\.4/i.test(c)
-  },
-  {
-    id: 'financeiro', label: 'Financeiro', cor: '#64748b',
-    match: c => /10\.5/i.test(c)
-  },
-  {
-    id: 'outras', label: 'Outras Despesas', cor: '#94a3b8',
-    match: c => /11\.2/i.test(c)
-  },
-]
 
 // Classifica uma transação em um grupo DRE
 function dreGrupo(t) {
