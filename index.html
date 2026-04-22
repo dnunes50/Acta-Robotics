@@ -767,6 +767,10 @@ const filtTxns = () => {
 }
 const saldoIni = () => {
   if (AF.banco) return SALDOS_INICIAIS[AF.banco] ?? 0
+  // Sem filtro de banco: soma todos os saldos iniciais configurados
+  const vals = Object.values(SALDOS_INICIAIS)
+  if (vals.length > 0) return vals.reduce((s,v)=>s+v, 0)
+  // Fallback: SALDO_INICIAL fixo (sem configuração)
   if (AMES === 'all') return SALDO_INICIAL
   return BM[AMES]?.saldoIni ?? SALDO_INICIAL
 }
