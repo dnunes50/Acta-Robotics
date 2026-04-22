@@ -234,6 +234,7 @@
   <div class="tab" onclick="nav('proj')">Projeção</div>
   <div class="tab" onclick="nav('desp')">Despesas</div>
   <div class="tab" onclick="nav('imp')">Importar</div>
+  <div class="tab" onclick="nav('cfg')">⚙ Configurações</div>
 </div>
 
 <!-- FILTRO MÊS -->
@@ -524,7 +525,34 @@
   </div>
 </div>
 
-<script>
+<!-- CONFIGURAÇÕES -->
+<div id="pg-cfg" class="pg" style="display:none">
+  <div class="card">
+    <div class="ch"><span class="ct">Saldo Inicial por Conta Bancária</span><span class="cb cb-b">Base para cálculo do saldo atual</span></div>
+    <div style="padding:10px 14px;font-size:11px;color:var(--muted);border-bottom:.5px solid var(--bd);background:rgba(37,99,235,.04)">
+      Informe o saldo de cada conta bancária <strong>na data do primeiro lançamento</strong> no extrato. O saldo atual de cada conta será calculado automaticamente: <em>Saldo Inicial + soma de todos os lançamentos</em>.
+    </div>
+    <div id="cfg-contas-list" style="padding:8px 0"></div>
+    <div style="padding:10px 14px;border-top:.5px solid var(--bd);display:flex;gap:8px;justify-content:flex-end;align-items:center">
+      <span id="cfg-status" style="font-size:11px;color:var(--muted)"></span>
+      <button onclick="salvarSaldosIniciais()" style="background:var(--o);color:#fff;border:none;padding:7px 18px;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer">✓ Salvar Saldos Iniciais</button>
+    </div>
+  </div>
+  <div class="card" style="margin-top:0">
+    <div class="ch"><span class="ct">SQL necessário no Supabase</span></div>
+    <div style="padding:12px 14px;font-size:11px;color:var(--muted)">
+      Execute esses comandos no <strong>Supabase → SQL Editor</strong> antes de usar esta tela:
+      <pre style="background:#f4f4f4;border-radius:6px;padding:10px;margin-top:8px;font-size:10px;overflow-x:auto;line-height:1.6">ALTER TABLE extratos ADD COLUMN IF NOT EXISTS banco TEXT DEFAULT 'Inter';
+
+CREATE TABLE IF NOT EXISTS saldos_iniciais (
+  banco TEXT PRIMARY KEY,
+  saldo_inicial NUMERIC NOT NULL DEFAULT 0,
+  data_referencia DATE,
+  updated_at TIMESTAMP DEFAULT NOW()
+);</pre>
+    </div>
+  </div>
+</div>
 // ╔══════════════════════════════════════════════════════════════╗
 // ║  CONFIGURAÇÃO — substitua com suas credenciais do Supabase  ║
 // ╚══════════════════════════════════════════════════════════════╝
@@ -539,8 +567,8 @@ const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY)
 let DATA=[], PENDING=[], CH={}
 let MONTHS=[], BM={}
 let AMES='all', CPG='dash', DESP_SEG='cat'
-// Filtros avançados
 let AF = { banco:'', cat:'', cc:'', nome:'', d1:'', d2:'' }
+let SALDOS_INICIAIS = {}  // { 'Inter - Acta': 12345.00, ... }
 
 // ── UTIL ─────────────────────────────────────────────────────────────────────
 const R = v => v==null||isNaN(v) ? '–' : (v<0?'-':'')+'R$ '+Math.abs(v).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})
@@ -558,12 +586,19 @@ document.getElementById('hdate').textContent = new Date().toLocaleDateString('pt
 async function carregarDoSupabase() {
   setLoadMsg('Buscando lançamentos...')
   try {
-    const { data, error } = await sb
-      .from('extratos')
-      .select('*')
-      .order('data_movimento', { ascending: true })
+    // Carrega extratos e saldos iniciais em paralelo
+    const [{ data, error }, { data: si, error: siErr }] = await Promise.all([
+      sb.from('extratos').select('*').order('data_movimento', { ascending: true }),
+      sb.from('saldos_iniciais').select('*').then(r => r).catch(() => ({ data: [], error: null }))
+    ])
 
     if (error) throw error
+
+    // Carrega saldos iniciais
+    if (si && !siErr) {
+      SALDOS_INICIAIS = {}
+      si.forEach(r => { SALDOS_INICIAIS[r.banco] = parseFloat(r.saldo_inicial) })
+    }
 
     if (!data || data.length === 0) {
       esconderLoading()
@@ -636,11 +671,13 @@ function processarDados() {
 // ── NAV ───────────────────────────────────────────────────────────────────────
 function nav(pg) {
   CPG = pg
-  ;['dash','hist','diario','proj','desp','imp'].forEach(p => document.getElementById('pg-'+p).style.display = p===pg?'block':'none')
-  document.querySelectorAll('.tab').forEach((el,i) => el.classList.toggle('active', ['dash','hist','diario','proj','desp','imp'][i]===pg))
-  document.getElementById('fbar').style.display = pg==='imp' ? 'none' : 'flex'
-  document.getElementById('afbar').style.display = pg==='imp' ? 'none' : 'flex'
-  if(DATA.length) refresh()
+  ;['dash','hist','diario','proj','desp','imp','cfg'].forEach(p => document.getElementById('pg-'+p).style.display = p===pg?'block':'none')
+  document.querySelectorAll('.tab').forEach((el,i) => el.classList.toggle('active', ['dash','hist','diario','proj','desp','imp','cfg'][i]===pg))
+  const hideBars = pg==='imp' || pg==='cfg'
+  document.getElementById('fbar').style.display = hideBars ? 'none' : 'flex'
+  document.getElementById('afbar').style.display = hideBars ? 'none' : 'flex'
+  if(pg==='cfg') renderCfg()
+  else if(DATA.length) refresh()
 }
 
 function buildMesBtns() {
@@ -868,9 +905,34 @@ function toggleDetalhe(tipo) {
 }
 
 // ── DASHBOARD ────────────────────────────────────────────────────────────────
+function calcSaldoBanco(banco) {
+  // Saldo de uma conta = saldo_inicial + soma de todos os lançamentos reais dessa conta
+  const saldoIni = SALDOS_INICIAIS[banco] ?? null
+  if (saldoIni === null) return null  // sem configuração, não pode calcular
+  const soma = DATA.filter(t => t.banco === banco && (isReal(t) || t.sit === 'Transferido'))
+                   .reduce((s, t) => s + t.valor, 0)
+  return saldoIni + soma
+}
+
 function calcSaldoAtual() {
-  // saldo_conta no Conta Azul é SEMPRE o saldo global consolidado de todas as contas.
-  // Não há saldo isolado por conta no extrato — usamos sempre o último lançamento real global.
+  // Se há saldos iniciais configurados: calcula por conta e soma
+  const bancosComConfig = Object.keys(SALDOS_INICIAIS)
+  if (bancosComConfig.length > 0) {
+    if (AF.banco) {
+      const s = calcSaldoBanco(AF.banco)
+      // Fallback para saldo global se conta não tiver configuração
+      if (s !== null) return s
+    } else {
+      // Tenta somar saldos de todas as contas com config
+      const bancosComDados = [...new Set(DATA.map(t=>t.banco).filter(Boolean))]
+      const bancosComAmbos = bancosComDados.filter(b => SALDOS_INICIAIS[b] !== undefined)
+      if (bancosComAmbos.length === bancosComDados.length) {
+        // Todas as contas têm configuração → soma calculada
+        return bancosComAmbos.reduce((s, b) => s + (calcSaldoBanco(b) ?? 0), 0)
+      }
+    }
+  }
+  // Fallback: último lançamento real global (saldo_conta consolidado do Conta Azul)
   const reais = DATA.filter(t => isReal(t) || t.sit === 'Transferido')
   return reais.length ? reais[reais.length - 1].saldo : SALDO_INICIAL
 }
@@ -1089,12 +1151,14 @@ function renderSaldoBancos() {
     byBanco[b].cnt++
   })
 
-  // Total de lançamentos e movimentação no período
-  const totalEnt = Object.values(byBanco).reduce((s,d)=>s+d.ent, 0)
-  const totalSai = Object.values(byBanco).reduce((s,d)=>s+d.sai, 0)
-  const totalLiq = totalEnt + totalSai
-  document.getElementById('bancos-total-badge').textContent =
-    `${txnsFiltradas.length} lançamentos · Líquido ${R(totalLiq)}`
+  // Saldo calculado por conta (quando saldo inicial estiver configurado)
+  const totalSaldos = bancosPresentes.map(b => calcSaldoBanco(b)).filter(v => v !== null)
+  const temSaldos = totalSaldos.length > 0
+  const totalSaldo = temSaldos ? totalSaldos.reduce((s,v)=>s+v,0) : null
+
+  document.getElementById('bancos-total-badge').textContent = temSaldos
+    ? R(totalSaldo)
+    : `${txnsFiltradas.length} lançamentos · Líquido ${R(txnsFiltradas.reduce((s,t)=>s+t.valor,0))}`
 
   const ncols = Math.min(4, bancosPresentes.length)
   document.getElementById('bancos-grid').style.gridTemplateColumns = `repeat(${ncols},1fr)`
@@ -1103,12 +1167,16 @@ function renderSaldoBancos() {
     const cor = corBanco(b)
     const d = byBanco[b] || {ent:0, sai:0, cnt:0}
     const liq = d.ent + d.sai
+    const saldoCalc = calcSaldoBanco(b)
     return `<div style="padding:12px 16px;border-right:.5px solid var(--bd);border-bottom:.5px solid var(--bd);border-left:3px solid ${cor}">
-      <div style="font-size:10px;font-weight:700;color:${cor};text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${b}">${b}</div>
-      <div style="font-size:10px;color:var(--muted);margin-bottom:4px">${d.cnt} lançamentos no período</div>
-      <div style="display:flex;gap:12px;font-size:11px;flex-wrap:wrap">
-        ${d.ent>0?`<span class="pos" style="font-weight:600">↑ ${R(d.ent)}</span>`:''}
-        ${d.sai<0?`<span class="neg" style="font-weight:600">↓ ${R(Math.abs(d.sai))}</span>`:''}
+      <div style="font-size:10px;font-weight:700;color:${cor};text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${b}">${b}</div>
+      ${saldoCalc !== null
+        ? `<div style="font-size:16px;font-weight:600;color:${saldoCalc>=0?'var(--text)':'var(--r)'};margin-bottom:3px">${R(saldoCalc)}</div>`
+        : `<div style="font-size:10px;color:var(--am);margin-bottom:4px">⚠ Configure saldo inicial</div>`}
+      <div style="font-size:10px;color:var(--muted);margin-bottom:3px">${d.cnt} lançamentos no período</div>
+      <div style="display:flex;gap:10px;font-size:10px;flex-wrap:wrap">
+        ${d.ent>0?`<span class="pos">↑ ${R(d.ent)}</span>`:''}
+        ${d.sai<0?`<span class="neg">↓ ${R(Math.abs(d.sai))}</span>`:''}
         ${d.cnt>0?`<span style="color:var(--muted)">= ${R(liq)}</span>`:'<span style="color:var(--muted)">Sem movimento</span>'}
       </div>
     </div>`
@@ -1376,6 +1444,74 @@ function buildChartDesp() {
   kill('desp')
   CH.desp=new Chart(document.getElementById('c-desp').getContext('2d'),{type:'bar',data:{labels:meses.map(mk=>MNm(mk).toUpperCase()),datasets},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>c.dataset.label+': '+R(c.parsed.y)}}},scales:{x:{ticks:{font:{size:9}},grid:{display:false},stacked:true},y:{ticks:{font:{size:9},callback:v=>'R$'+(v/1000).toFixed(0)+'k'},grid:{color:'rgba(0,0,0,0.05)'},stacked:true}}}})
   document.getElementById('desp-lgd').innerHTML=cats.map((c,i)=>`<span><span class="ld" style="background:${CORES[i]}"></span>${c}</span>`).join('')
+}
+
+// ── CONFIGURAÇÕES ────────────────────────────────────────────────────────────
+function renderCfg() {
+  const bancosPresentes = [...new Set(DATA.map(t=>t.banco).filter(Boolean))].sort()
+  if (!bancosPresentes.length) {
+    document.getElementById('cfg-contas-list').innerHTML =
+      '<div style="padding:16px;text-align:center;font-size:12px;color:var(--muted)">Importe o extrato primeiro para ver as contas disponíveis.</div>'
+    return
+  }
+
+  const BANCO_COLORS_MAP = [['Inter','#E87722'],['Banco do Brasil','#2563eb'],['BTG','#7c3aed'],['Caixa','#16a34a'],['Nubank','#8b5cf6']]
+  const corBanco = b => { for(const [k,c] of BANCO_COLORS_MAP) if(b.toLowerCase().includes(k.toLowerCase())) return c; return '#666' }
+
+  document.getElementById('cfg-contas-list').innerHTML = bancosPresentes.map(b => {
+    const cor = corBanco(b)
+    const primLanc = DATA.filter(t=>t.banco===b).sort((a,z)=>a.date-z.date)[0]
+    const dataRef = primLanc ? primLanc.date.toLocaleDateString('pt-BR') : '–'
+    const val = SALDOS_INICIAIS[b] ?? ''
+    return `<div style="display:flex;align-items:center;gap:12px;padding:10px 16px;border-bottom:.5px solid var(--bd)">
+      <div style="width:4px;height:36px;background:${cor};border-radius:2px;flex-shrink:0"></div>
+      <div style="flex:1;min-width:0">
+        <div style="font-size:12px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${b}">${b}</div>
+        <div style="font-size:10px;color:var(--muted)">Primeiro lançamento: ${dataRef}</div>
+      </div>
+      <div style="display:flex;align-items:center;gap:6px;flex-shrink:0">
+        <span style="font-size:11px;color:var(--muted)">Saldo inicial:</span>
+        <input id="cfg-saldo-${b.replace(/[^a-zA-Z0-9]/g,'_')}"
+          type="text" inputmode="decimal"
+          value="${val !== '' ? val.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}) : ''}"
+          placeholder="R$ 0,00"
+          style="width:140px;font-size:12px;padding:5px 8px;border:.5px solid var(--bd);border-radius:6px;text-align:right;outline:none;font-weight:600"
+          onfocus="this.style.borderColor='var(--o)'"
+          onblur="this.style.borderColor='var(--bd)'"
+          data-banco="${b}">
+      </div>
+    </div>`
+  }).join('')
+}
+
+async function salvarSaldosIniciais() {
+  const inputs = document.querySelectorAll('#cfg-contas-list input[data-banco]')
+  const st = document.getElementById('cfg-status')
+  st.textContent = 'Salvando...'
+  st.style.color = 'var(--muted)'
+
+  const rows = []
+  inputs.forEach(inp => {
+    const banco = inp.dataset.banco
+    const raw = inp.value.replace(/[R$\s.]/g,'').replace(',','.')
+    const val = parseFloat(raw)
+    if (!isNaN(val)) rows.push({ banco, saldo_inicial: val, data_referencia: null, updated_at: new Date().toISOString() })
+  })
+
+  try {
+    for (const row of rows) {
+      const { error } = await sb.from('saldos_iniciais').upsert(row, { onConflict: 'banco' })
+      if (error) throw error
+      SALDOS_INICIAIS[row.banco] = row.saldo_inicial
+    }
+    st.textContent = `✓ ${rows.length} contas salvas`
+    st.style.color = 'var(--g)'
+    // Atualiza o dashboard se estiver visível
+    if (DATA.length) renderDash()
+  } catch(err) {
+    st.textContent = 'Erro: ' + err.message
+    st.style.color = 'var(--r)'
+  }
 }
 
 // ── AUTENTICAÇÃO ─────────────────────────────────────────────────────────────
