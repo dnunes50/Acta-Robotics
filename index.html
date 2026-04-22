@@ -233,6 +233,7 @@
   <div class="tab" onclick="nav('diario')">Caixa Diário</div>
   <div class="tab" onclick="nav('proj')">Projeção</div>
   <div class="tab" onclick="nav('desp')">Despesas</div>
+  <div class="tab" onclick="nav('dre')">DRE</div>
   <div class="tab" onclick="nav('imp')">Importar</div>
   <div class="tab" onclick="nav('cfg')">⚙ Configurações</div>
 </div>
@@ -525,6 +526,52 @@
   </div>
 </div>
 
+<!-- DRE -->
+<div id="pg-dre" class="pg" style="display:none">
+
+  <!-- KPIs -->
+  <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:12px" id="dre-kpis"></div>
+
+  <!-- Gráfico + Tabela DRE lado a lado -->
+  <div class="tcol" style="margin-bottom:12px">
+    <div class="card" style="margin-bottom:0">
+      <div class="ch">
+        <span class="ct">Receita vs Despesa por Mês</span>
+        <span class="cb cb-o" id="dre-chart-lbl">–</span>
+      </div>
+      <div class="cw"><div class="cc" style="height:220px"><canvas id="c-dre"></canvas></div></div>
+      <div class="lgd">
+        <span><span class="ld" style="background:#16a34a"></span>Receita Clientes</span>
+        <span><span class="ld" style="background:#2563eb"></span>Aportes</span>
+        <span><span class="ld" style="background:#dc2626"></span>Despesas</span>
+        <span><span class="ld" style="background:#E87722"></span>Resultado</span>
+      </div>
+    </div>
+    <div class="card" style="margin-bottom:0">
+      <div class="ch"><span class="ct">Resultado por Grupo</span><span class="cb cb-o" id="dre-grupo-lbl">–</span></div>
+      <div id="dre-grupos-bars" style="max-height:320px;overflow-y:auto"></div>
+    </div>
+  </div>
+
+  <!-- Tabela DRE -->
+  <div class="card">
+    <div class="ch">
+      <span class="ct" id="dre-tit">DRE — Demonstrativo de Resultado</span>
+      <div style="display:flex;gap:6px;align-items:center">
+        <span class="cb cb-o" id="dre-periodo-badge">–</span>
+        <span class="cb" id="dre-status-badge">–</span>
+      </div>
+    </div>
+    <div style="overflow-x:auto">
+      <table class="t" id="dre-table">
+        <thead id="dre-thead"></thead>
+        <tbody id="dre-tbody"></tbody>
+      </table>
+    </div>
+  </div>
+
+</div>
+
 <!-- CONFIGURAÇÕES -->
 <div id="pg-cfg" class="pg" style="display:none">
   <div class="card">
@@ -672,8 +719,8 @@ function processarDados() {
 // ── NAV ───────────────────────────────────────────────────────────────────────
 function nav(pg) {
   CPG = pg
-  ;['dash','hist','diario','proj','desp','imp','cfg'].forEach(p => document.getElementById('pg-'+p).style.display = p===pg?'block':'none')
-  document.querySelectorAll('.tab').forEach((el,i) => el.classList.toggle('active', ['dash','hist','diario','proj','desp','imp','cfg'][i]===pg))
+  ;['dash','hist','diario','proj','desp','dre','imp','cfg'].forEach(p => document.getElementById('pg-'+p).style.display = p===pg?'block':'none')
+  document.querySelectorAll('.tab').forEach((el,i) => el.classList.toggle('active', ['dash','hist','diario','proj','desp','dre','imp','cfg'][i]===pg))
   const hideBars = pg==='imp' || pg==='cfg'
   document.getElementById('fbar').style.display = hideBars ? 'none' : 'flex'
   document.getElementById('afbar').style.display = hideBars ? 'none' : 'flex'
@@ -781,6 +828,7 @@ function refresh() {
   else if(CPG==='diario') renderDiario()
   else if(CPG==='proj') renderProj()
   else if(CPG==='desp') renderDesp()
+  else if(CPG==='dre') renderDRE()
 }
 
 // ── IMPORT + SALVAR NO SUPABASE ───────────────────────────────────────────────
@@ -1499,6 +1547,256 @@ function buildChartDesp() {
   kill('desp')
   CH.desp=new Chart(document.getElementById('c-desp').getContext('2d'),{type:'bar',data:{labels:meses.map(mk=>MNm(mk).toUpperCase()),datasets},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>c.dataset.label+': '+R(c.parsed.y)}}},scales:{x:{ticks:{font:{size:9}},grid:{display:false},stacked:true},y:{ticks:{font:{size:9},callback:v=>'R$'+(v/1000).toFixed(0)+'k'},grid:{color:'rgba(0,0,0,0.05)'},stacked:true}}}})
   document.getElementById('desp-lgd').innerHTML=cats.map((c,i)=>`<span><span class="ld" style="background:${CORES[i]}"></span>${c}</span>`).join('')
+}
+
+// ── DRE ──────────────────────────────────────────────────────────────────────
+
+// Mapeamento de grupos DRE — categorias → grupo
+const DRE_GRUPOS = [
+  {
+    id: 'pessoal', label: 'Pessoal', cor: '#7c3aed',
+    match: c => /9\.1\.1|9\.2\.1|9\.3\.1|9\.3\.2/i.test(c)
+  },
+  {
+    id: 'pd', label: 'P&D / Tecnologia', cor: '#2563eb',
+    match: c => /9\.3\.3|9\.3\.4|9\.3\.5|9\.3\.13/i.test(c)
+  },
+  {
+    id: 'cogs', label: 'Custo do Serviço (COGS)', cor: '#0891b2',
+    match: c => /8\.1\.1|8\.2\.3|8\.2\.4|8\.2\.6/i.test(c)
+  },
+  {
+    id: 'comercial', label: 'Comercial / Marketing', cor: '#E87722',
+    match: c => /9\.1\.3|9\.1\.4|9\.1\.5|9\.1\.6|8\.2\.11/i.test(c)
+  },
+  {
+    id: 'ga', label: 'G&A (Administrativo)', cor: '#d97706',
+    match: c => /9\.2\.3|9\.2\.4|9\.2\.5|9\.2\.6|9\.2\.8/i.test(c)
+  },
+  {
+    id: 'impostos', label: 'Impostos', cor: '#dc2626',
+    match: c => /5\.4/i.test(c)
+  },
+  {
+    id: 'financeiro', label: 'Financeiro', cor: '#64748b',
+    match: c => /10\.5/i.test(c)
+  },
+  {
+    id: 'outras', label: 'Outras Despesas', cor: '#94a3b8',
+    match: c => /11\.2/i.test(c)
+  },
+]
+
+// Classifica uma transação em um grupo DRE
+function dreGrupo(t) {
+  if (t.valor >= 0) return null  // só despesas
+  if (/transfer/i.test(t.cat) || /transfer/i.test(t.desc)) return null  // ignora transferências
+  for (const g of DRE_GRUPOS) {
+    if (g.match(t.cat || '')) return g
+  }
+  return { id: 'outras', label: 'Outras Despesas', cor: '#94a3b8' }
+}
+
+function renderDRE() {
+  const meses = AMES==='all' ? MONTHS : [AMES]
+  const txnsBase = filtTxns()  // respeita todos os filtros avançados
+
+  // Período label
+  const periodoLbl = AMES==='all'
+    ? `${MNm(MONTHS[0]).toUpperCase()} – ${MNm(MONTHS[MONTHS.length-1]).toUpperCase()}`
+    : MNm(AMES).toUpperCase()
+  document.getElementById('dre-tit').textContent = `DRE — ${periodoLbl}`
+  document.getElementById('dre-periodo-badge').textContent = periodoLbl
+  document.getElementById('dre-chart-lbl').textContent = periodoLbl
+
+  // Agrupa por mês
+  const porMes = meses.map(mk => {
+    const t = txnsBase.filter(t => MK(t.date) === mk)
+    const rec   = t.filter(isReceita).reduce((s,x)=>s+x.valor,0)
+    const apo   = t.filter(isAporte).reduce((s,x)=>s+x.valor,0)
+    const grupos = {}
+    DRE_GRUPOS.forEach(g => grupos[g.id] = 0)
+    t.filter(x=>x.valor<0).forEach(x => {
+      const g = dreGrupo(x)
+      if (g) grupos[g.id] = (grupos[g.id] || 0) + Math.abs(x.valor)
+    })
+    const totalDesp = Object.values(grupos).reduce((s,v)=>s+v,0)
+    const lucBruto  = rec - grupos.cogs - grupos.impostos
+    const ebitda    = rec - totalDesp
+    const resultado = rec + apo - totalDesp
+    return { mk, rec, apo, grupos, totalDesp, lucBruto, ebitda, resultado }
+  })
+
+  // Acumulado
+  const acc = {
+    rec: porMes.reduce((s,m)=>s+m.rec,0),
+    apo: porMes.reduce((s,m)=>s+m.apo,0),
+    totalDesp: porMes.reduce((s,m)=>s+m.totalDesp,0),
+    grupos: {},
+    lucBruto: porMes.reduce((s,m)=>s+m.lucBruto,0),
+    ebitda: porMes.reduce((s,m)=>s+m.ebitda,0),
+    resultado: porMes.reduce((s,m)=>s+m.resultado,0),
+  }
+  DRE_GRUPOS.forEach(g => {
+    acc.grupos[g.id] = porMes.reduce((s,m)=>s+(m.grupos[g.id]||0),0)
+  })
+
+  // ── KPIs ──────────────────────────────────────────────────────────────────
+  const margem = acc.rec > 0 ? (acc.ebitda / acc.rec * 100).toFixed(1) : 0
+  const cobert = acc.totalDesp > 0 ? (acc.rec / acc.totalDesp * 100).toFixed(0) : 0
+  document.getElementById('dre-kpis').innerHTML = `
+    <div class="kcard" style="border-left-color:var(--g)">
+      <div class="klbl">Receita Clientes</div>
+      <div class="kval pos">${R(acc.rec)}</div>
+      <div class="ksub">${txnsBase.filter(isReceita).length} operações</div>
+    </div>
+    <div class="kcard" style="border-left-color:var(--bl)">
+      <div class="klbl">Aportes</div>
+      <div class="kval info">${R(acc.apo)}</div>
+      <div class="ksub">${txnsBase.filter(isAporte).length} aportes</div>
+    </div>
+    <div class="kcard" style="border-left-color:var(--r)">
+      <div class="klbl">Total Despesas</div>
+      <div class="kval neg">${R(acc.totalDesp)}</div>
+      <div class="ksub">${DRE_GRUPOS.length} grupos</div>
+    </div>
+    <div class="kcard" style="border-left-color:var(--am)">
+      <div class="klbl">EBITDA</div>
+      <div class="kval ${acc.ebitda>=0?'pos':'neg'}">${R(acc.ebitda)}</div>
+      <div class="ksub ${acc.ebitda>=0?'pos':'neg'}">Margem ${margem}%</div>
+    </div>
+    <div class="kcard" style="border-left-color:${acc.resultado>=0?'var(--g)':'var(--r)'}">
+      <div class="klbl">Resultado Final</div>
+      <div class="kval ${acc.resultado>=0?'pos':'neg'}">${R(acc.resultado)}</div>
+      <div class="ksub">Cobertura ${cobert}%</div>
+    </div>`
+
+  const statusCls = acc.resultado >= 0 ? 'cb-g' : 'cb-r'
+  const statusTxt = acc.resultado >= 0 ? '● Superávit' : '▼ Déficit'
+  document.getElementById('dre-status-badge').className = 'cb ' + statusCls
+  document.getElementById('dre-status-badge').textContent = statusTxt
+
+  // ── Barras por grupo ──────────────────────────────────────────────────────
+  const maxGrupo = Math.max(...DRE_GRUPOS.map(g => acc.grupos[g.id]||0), 1)
+  document.getElementById('dre-grupos-bars').innerHTML = DRE_GRUPOS
+    .filter(g => (acc.grupos[g.id]||0) > 0)
+    .sort((a,b) => (acc.grupos[b.id]||0) - (acc.grupos[a.id]||0))
+    .map(g => {
+      const v = acc.grupos[g.id] || 0
+      const pct = Math.round(v / maxGrupo * 100)
+      const pctTotal = acc.totalDesp > 0 ? (v/acc.totalDesp*100).toFixed(1) : 0
+      return `<div class="bar-row">
+        <div class="bar-label" title="${g.label}" style="color:${g.cor};font-weight:500">${g.label}</div>
+        <div class="bar-track"><div class="bar-fill" style="width:${pct}%;background:${g.cor}"></div></div>
+        <div style="flex:0 0 50px;text-align:right;font-size:10px;color:var(--muted)">${pctTotal}%</div>
+        <div class="bar-val neg">${R(v)}</div>
+      </div>`
+    }).join('')
+  document.getElementById('dre-grupo-lbl').textContent = `Total ${R(acc.totalDesp)}`
+
+  // ── Gráfico ───────────────────────────────────────────────────────────────
+  kill('dre')
+  if (meses.length > 1) {
+    const lbs  = meses.map(mk => MNm(mk).toUpperCase())
+    const recs = porMes.map(m => +m.rec.toFixed(2))
+    const apos = porMes.map(m => +m.apo.toFixed(2))
+    const desps = porMes.map(m => +m.totalDesp.toFixed(2))
+    const ress  = porMes.map(m => +m.resultado.toFixed(2))
+    CH.dre = new Chart(document.getElementById('c-dre').getContext('2d'), {
+      data: { labels: lbs, datasets: [
+        { type:'bar',  label:'Receita Clientes', data:recs,  backgroundColor:'rgba(22,163,74,.7)',  stack:'in', yAxisID:'y' },
+        { type:'bar',  label:'Aportes',           data:apos,  backgroundColor:'rgba(37,99,235,.6)',  stack:'in', yAxisID:'y' },
+        { type:'bar',  label:'Despesas',           data:desps, backgroundColor:'rgba(220,38,38,.65)', stack:'out',yAxisID:'y' },
+        { type:'line', label:'Resultado',          data:ress,  borderColor:'#E87722', borderWidth:2.5, pointRadius:3, fill:false, tension:0.3, yAxisID:'y' },
+      ]},
+      options: { responsive:true, maintainAspectRatio:false,
+        plugins:{ legend:{display:false}, tooltip:{callbacks:{label:c=>c.dataset.label+': '+R(c.parsed.y)}} },
+        scales:{
+          x:{ ticks:{font:{size:9}}, grid:{display:false}, stacked:true },
+          y:{ ticks:{font:{size:9}, callback:v=>'R$'+(v/1000).toFixed(0)+'k'}, grid:{color:'rgba(0,0,0,0.05)'}, stacked:false }
+        }
+      }
+    })
+  } else {
+    // Mês único: gráfico de pizza de despesas por grupo
+    const grupos = DRE_GRUPOS.filter(g => (acc.grupos[g.id]||0) > 0)
+    CH.dre = new Chart(document.getElementById('c-dre').getContext('2d'), {
+      type:'doughnut',
+      data:{ labels: grupos.map(g=>g.label), datasets:[{ data: grupos.map(g=>acc.grupos[g.id]||0), backgroundColor: grupos.map(g=>g.cor+'cc'), borderWidth:1 }] },
+      options:{ responsive:true, maintainAspectRatio:false, plugins:{ legend:{display:false}, tooltip:{callbacks:{label:c=>c.label+': '+R(c.parsed)}} } }
+    })
+  }
+
+  // ── Tabela DRE ────────────────────────────────────────────────────────────
+  const cols = meses.length > 1 ? [...meses, 'ACC'] : meses
+  const colLbl = mk => mk === 'ACC' ? 'ACUMULADO' : MNm(mk).toUpperCase()
+  const getVal = (mk, getter) => mk === 'ACC' ? getter(acc) : getter(porMes.find(m=>m.mk===mk))
+
+  // Gera cabeçalho
+  document.getElementById('dre-thead').innerHTML = `<tr>
+    <th style="text-align:left;width:260px">Item</th>
+    ${cols.map(mk=>`<th${mk==='ACC'?' style="background:#f0f0f0;font-weight:700"':''}>${colLbl(mk)}</th>`).join('')}
+  </tr>`
+
+  // Helper para linha
+  const linha = (label, getter, opts={}) => {
+    const { bold, cor, indent, separator, margem: showMargem, recBase } = opts
+    if (separator) return `<tr><td colspan="${cols.length+1}" style="padding:3px 9px;background:#f8f8f8;font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;border-bottom:.5px solid var(--bd)">${label}</td></tr>`
+    const vals = cols.map(mk => {
+      const v = getVal(mk, getter)
+      const isAcc = mk === 'ACC'
+      const cls = v > 0 ? 'pos' : v < 0 ? 'neg' : ''
+      const style = `${isAcc?'font-weight:700;background:#fafafa;':''}${cor?`color:${cor};`:''}`
+      let cell = `<td style="text-align:right;${style}" class="${cls}">${R(v)}</td>`
+      if (showMargem && recBase) {
+        const base = getVal(mk, recBase)
+        const pct = base !== 0 ? (v/base*100).toFixed(1)+'%' : '–'
+        cell = `<td style="text-align:right;${style}"><span class="${cls}">${R(v)}</span><span style="font-size:9px;color:var(--muted);margin-left:4px">${pct}</span></td>`
+      }
+      return cell
+    }).join('')
+    const labelStyle = `padding-left:${indent?'22px':'9px'};${bold?'font-weight:700;':''}${cor?`color:${cor};`:''}`
+    return `<tr class="${bold?'':''}">
+      <td style="${labelStyle}">${label}</td>
+      ${vals}
+    </tr>`
+  }
+
+  // Estrutura do DRE
+  let rows = ''
+
+  // RECEITAS
+  rows += linha('RECEITAS', null, {separator:true})
+  rows += linha('Receita Bruta (Clientes)', m => m.rec, {cor:'var(--g)', bold:false})
+  rows += linha('Aportes / Empréstimos',    m => m.apo, {cor:'var(--bl)'})
+  rows += linha('Total Entradas',           m => m.rec + m.apo, {bold:true})
+
+  // DEDUÇÕES
+  rows += linha('DEDUÇÕES E IMPOSTOS', null, {separator:true})
+  rows += linha('Impostos sobre Vendas',    m => -(m.grupos.impostos||0), {indent:true, cor:'var(--r)'})
+  rows += linha('Receita Líquida',          m => m.rec - (m.grupos.impostos||0), {bold:true})
+
+  // COGS
+  rows += linha('CUSTO DOS SERVIÇOS (COGS)', null, {separator:true})
+  rows += linha('Custo do Serviço',         m => -(m.grupos.cogs||0), {indent:true, cor:'var(--r)'})
+  rows += linha('Lucro Bruto',              m => m.lucBruto, {bold:true, margem:true, recBase: m => m.rec})
+
+  // DESPESAS OPERACIONAIS
+  rows += linha('DESPESAS OPERACIONAIS', null, {separator:true})
+  rows += linha('Pessoal',                  m => -(m.grupos.pessoal||0),    {indent:true, cor:'var(--r)'})
+  rows += linha('P&D / Tecnologia',         m => -(m.grupos.pd||0),         {indent:true, cor:'var(--r)'})
+  rows += linha('Comercial / Marketing',    m => -(m.grupos.comercial||0),  {indent:true, cor:'var(--r)'})
+  rows += linha('G&A (Administrativo)',     m => -(m.grupos.ga||0),         {indent:true, cor:'var(--r)'})
+  rows += linha('Financeiro',               m => -(m.grupos.financeiro||0), {indent:true, cor:'var(--r)'})
+  rows += linha('Outras Despesas',          m => -(m.grupos.outras||0),     {indent:true, cor:'var(--r)'})
+  rows += linha('Total Despesas Operacionais', m => -(m.totalDesp - (m.grupos.impostos||0) - (m.grupos.cogs||0)), {bold:true, cor:'var(--r)'})
+
+  // RESULTADOS
+  rows += linha('RESULTADOS', null, {separator:true})
+  rows += linha('EBITDA',                   m => m.ebitda, {bold:true, margem:true, recBase: m => m.rec})
+  rows += linha('Resultado Final (c/ Aportes)', m => m.resultado, {bold:true, margem:true, recBase: m => m.rec + m.apo})
+
+  document.getElementById('dre-tbody').innerHTML = rows
 }
 
 // ── CONFIGURAÇÕES ────────────────────────────────────────────────────────────
