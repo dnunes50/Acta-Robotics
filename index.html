@@ -285,7 +285,7 @@
 
   <!-- SALDO POR CONTA -->
   <div class="card" id="card-saldo-bancos" style="margin-bottom:12px">
-    <div class="ch"><span class="ct">Saldo por Conta Bancária</span><span class="cb cb-o" id="bancos-total-badge">–</span></div>
+    <div class="ch"><span class="ct">Movimentação por Conta Bancária</span><span class="cb cb-o" id="bancos-total-badge">–</span></div>
     <div id="bancos-grid" style="display:grid;grid-template-columns:repeat(4,1fr);gap:0"></div>
   </div>
 
@@ -869,23 +869,10 @@ function toggleDetalhe(tipo) {
 
 // ── DASHBOARD ────────────────────────────────────────────────────────────────
 function calcSaldoAtual() {
-  // Saldo de cada conta = saldo do último lançamento real daquela conta
-  const bancosComDados = [...new Set(DATA.filter(isReal).map(t=>t.banco).filter(Boolean))]
-  if(!bancosComDados.length) {
-    // fallback: sem campo banco, usa último lançamento real global
-    const reais = DATA.filter(isReal)
-    return reais.length ? reais[reais.length-1].saldo : SALDO_INICIAL
-  }
-  if(AF.banco) {
-    // filtro de conta ativo: saldo real dessa conta
-    const reais = DATA.filter(t=>isReal(t) && t.banco===AF.banco)
-    return reais.length ? reais[reais.length-1].saldo : 0
-  }
-  // sem filtro: soma do último saldo real de cada conta
-  const saldosPorBanco = {}
-  DATA.filter(isReal).forEach(t => { if(t.banco) saldosPorBanco[t.banco] = t.saldo })
-  const vals = Object.values(saldosPorBanco)
-  return vals.length ? vals.reduce((s,v)=>s+v,0) : DATA.filter(isReal).slice(-1)[0]?.saldo ?? SALDO_INICIAL
+  // saldo_conta no Conta Azul é SEMPRE o saldo global consolidado de todas as contas.
+  // Não há saldo isolado por conta no extrato — usamos sempre o último lançamento real global.
+  const reais = DATA.filter(t => isReal(t) || t.sit === 'Transferido')
+  return reais.length ? reais[reais.length - 1].saldo : SALDO_INICIAL
 }
 
 function renderDash() {
@@ -1071,7 +1058,6 @@ function buildAlerta() {
 
 // ── SALDO POR BANCO ───────────────────────────────────────────────────────────
 function renderSaldoBancos() {
-  // Cores por nome de banco (parcial)
   const BANCO_COLORS_MAP = [
     ['Inter', '#E87722'],
     ['Banco do Brasil', '#2563eb'],
@@ -1084,7 +1070,6 @@ function renderSaldoBancos() {
     return '#666'
   }
 
-  // Bancos que existem em DATA
   const bancosPresentes = [...new Set(DATA.map(t=>t.banco).filter(Boolean))].sort()
   if(!bancosPresentes.length) {
     document.getElementById('card-saldo-bancos').style.display = 'none'
@@ -1092,15 +1077,7 @@ function renderSaldoBancos() {
   }
   document.getElementById('card-saldo-bancos').style.display = ''
 
-  // Saldo real de cada conta = saldo do ÚLTIMO lançamento real (conciliado/quitado) daquela conta
-  // Independente de filtros de mês ou outros filtros
-  const saldosBanco = {}
-  bancosPresentes.forEach(b => {
-    const reais = DATA.filter(t => (isReal(t) || t.sit==='Transferido') && t.banco===b)
-    saldosBanco[b] = reais.length ? reais[reais.length-1].saldo : null
-  })
-
-  // Entradas/saídas no período filtrado (respeita filtros ativos)
+  // Entradas/saídas no período filtrado (respeita todos os filtros ativos)
   const txnsFiltradas = filtTxns()
   const byBanco = {}
   bancosPresentes.forEach(b => byBanco[b] = { ent:0, sai:0, cnt:0 })
@@ -1112,29 +1089,27 @@ function renderSaldoBancos() {
     byBanco[b].cnt++
   })
 
-  // Total = soma dos saldos reais de cada conta
-  const saldosValidos = Object.values(saldosBanco).filter(v=>v!=null)
-  const totalSaldo = saldosValidos.reduce((s,v)=>s+v, 0)
-  document.getElementById('bancos-total-badge').textContent = R(totalSaldo)
+  // Total de lançamentos e movimentação no período
+  const totalEnt = Object.values(byBanco).reduce((s,d)=>s+d.ent, 0)
+  const totalSai = Object.values(byBanco).reduce((s,d)=>s+d.sai, 0)
+  const totalLiq = totalEnt + totalSai
+  document.getElementById('bancos-total-badge').textContent =
+    `${txnsFiltradas.length} lançamentos · Líquido ${R(totalLiq)}`
 
-  // Grid responsivo: 4 por linha se 4+ bancos, senão adaptado
   const ncols = Math.min(4, bancosPresentes.length)
   document.getElementById('bancos-grid').style.gridTemplateColumns = `repeat(${ncols},1fr)`
 
   document.getElementById('bancos-grid').innerHTML = bancosPresentes.map(b => {
     const cor = corBanco(b)
-    const s = saldosBanco[b]
-    const d = byBanco[b] || {ent:0,sai:0,cnt:0}
-    const saldoTxt = s != null ? R(s) : '–'
-    const saldoCls = s == null ? '' : s >= 0 ? 'var(--text)' : 'var(--r)'
+    const d = byBanco[b] || {ent:0, sai:0, cnt:0}
+    const liq = d.ent + d.sai
     return `<div style="padding:12px 16px;border-right:.5px solid var(--bd);border-bottom:.5px solid var(--bd);border-left:3px solid ${cor}">
-      <div style="font-size:10px;font-weight:700;color:${cor};text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${b}">${b}</div>
-      <div style="font-size:16px;font-weight:600;color:${saldoCls}">${saldoTxt}</div>
-      <div style="font-size:10px;color:var(--muted);margin-top:3px">${d.cnt} lançamentos no período</div>
-      <div style="display:flex;gap:8px;margin-top:3px;font-size:10px">
-        ${d.ent>0?`<span class="pos">↑ ${R(d.ent)}</span>`:''}
-        ${d.sai<0?`<span class="neg">↓ ${R(Math.abs(d.sai))}</span>`:''}
-        ${d.ent===0&&d.sai===0?'<span style="color:var(--muted)">Sem movimento no período</span>':''}
+      <div style="font-size:10px;font-weight:700;color:${cor};text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${b}">${b}</div>
+      <div style="font-size:10px;color:var(--muted);margin-bottom:4px">${d.cnt} lançamentos no período</div>
+      <div style="display:flex;gap:12px;font-size:11px;flex-wrap:wrap">
+        ${d.ent>0?`<span class="pos" style="font-weight:600">↑ ${R(d.ent)}</span>`:''}
+        ${d.sai<0?`<span class="neg" style="font-weight:600">↓ ${R(Math.abs(d.sai))}</span>`:''}
+        ${d.cnt>0?`<span style="color:var(--muted)">= ${R(liq)}</span>`:'<span style="color:var(--muted)">Sem movimento</span>'}
       </div>
     </div>`
   }).join('')
@@ -1166,11 +1141,9 @@ function renderHist() {
     const cb  = rec + sai
     const tipo = m.real?'Realizado':m.parcial?'Parcial':'Previsto'
     const cor  = m.real?'var(--g)':m.parcial?'var(--am)':'var(--bl)'
-    // saldoFim: se tem filtro de banco, usar saldo real desse banco; senão usar global
-    const saldoFim = AF.banco
-      ? (DATA.filter(t=>(isReal(t)||t.sit==='Transferido')&&t.banco===AF.banco&&MK(t.date)===mk).slice(-1)[0]?.saldo ?? null)
-      : m.saldoFim
-    const saldoIniVal = AF.banco ? null : m.saldoIni  // não temos saldo inicial por conta isolada
+    // saldoFim e saldoIni são sempre globais (saldo_conta = consolidado de todas as contas)
+    const saldoFim = m.saldoFim
+    const saldoIniVal = m.saldoIni
     return { mk, m, rec, apo, sai, res, cb, tipo, cor, saldoFim, saldoIniVal }
   })
 
@@ -1304,9 +1277,7 @@ function renderDiario() {
     const byDay={}
     txnsMes.forEach(t=>{const k=PK(t.date);if(!byDay[k])byDay[k]={e:0,s:0,sal:t.saldo,sit:t.sit};if(t.valor>0)byDay[k].e+=t.valor;else byDay[k].s+=t.valor;byDay[k].sal=t.saldo;byDay[k].sit=byDay[k].sit==='Em aberto'?'Em aberto':t.sit})
     const m=BM[mk]
-    let ps = AF.banco
-      ? (DATA.filter(t=>(isReal(t)||t.sit==='Transferido')&&t.banco===AF.banco&&MK(t.date)<mk).slice(-1)[0]?.saldo ?? 0)
-      : m.saldoIni
+    let ps = m.saldoIni
     for(let d=new Date(ini);d<=fim;d.setDate(d.getDate()+1)){const k=PK(new Date(d));if(byDay[k]){ps=byDay[k].sal;rows.push({k,date:new Date(d),...byDay[k],tipo:'mov'})}else rows.push({k,date:new Date(d),e:0,s:0,sal:ps,sit:'',tipo:'vazio'})}
   })
   document.getElementById('diario-cnt').textContent=rows.filter(r=>r.tipo==='mov').length+' dias com movimento'
