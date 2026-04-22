@@ -50,6 +50,21 @@
     .mfb.bl.active { background:var(--bl); border-color:var(--bl); }
     .mfb.dk.active { background:var(--dk); border-color:var(--dk); }
 
+    /* ── FILTROS AVANÇADOS ── */
+    .afbar { background:#fafafa; border-bottom:1px solid var(--bd); padding:6px 16px; display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+    .afl { font-size:10px; font-weight:600; color:var(--muted); text-transform:uppercase; letter-spacing:.5px; white-space:nowrap; }
+    .af-select { font-size:11px; padding:3px 8px; border:.5px solid var(--bd); border-radius:6px; background:var(--surface); color:var(--text); cursor:pointer; outline:none; transition:border .12s; max-width:160px; }
+    .af-select:focus { border-color:var(--o); }
+    .af-select.active { border-color:var(--o); color:var(--o); font-weight:600; background:rgba(232,119,34,.05); }
+    .af-input { font-size:11px; padding:3px 8px; border:.5px solid var(--bd); border-radius:6px; background:var(--surface); color:var(--text); outline:none; transition:border .12s; width:120px; }
+    .af-input:focus { border-color:var(--o); }
+    .af-input.active { border-color:var(--o); color:var(--o); font-weight:600; }
+    .af-clear { font-size:10px; padding:3px 8px; border-radius:6px; cursor:pointer; border:.5px solid rgba(220,38,38,.3); color:var(--r); background:rgba(220,38,38,.05); font-weight:600; white-space:nowrap; display:none; }
+    .af-clear:hover { background:rgba(220,38,38,.12); }
+    .af-separator { width:.5px; height:18px; background:var(--bd); margin:0 2px; }
+    .af-badge { display:inline-flex; align-items:center; gap:4px; background:rgba(232,119,34,.1); border:.5px solid rgba(232,119,34,.3); color:var(--o); border-radius:10px; padding:2px 8px; font-size:10px; font-weight:600; }
+    .af-label { font-size:10px; color:var(--muted); white-space:nowrap; }
+
     /* ── LAYOUT ── */
     .pg { padding:14px 16px; max-width:1400px; margin:0 auto; }
     .card { background:var(--surface); border:.5px solid var(--bd); border-radius:8px; overflow:hidden; margin-bottom:12px; box-shadow:0 1px 3px rgba(0,0,0,.04); }
@@ -227,6 +242,36 @@
   <div id="mbtns" style="display:flex;gap:6px;flex-wrap:wrap"></div>
 </div>
 
+<!-- FILTROS AVANÇADOS -->
+<div class="afbar" id="afbar">
+  <span class="afl">Filtros:</span>
+  <div class="af-label">Conta:</div>
+  <select class="af-select" id="af-banco" onchange="applyFilters()">
+    <option value="">Todas as contas</option>
+    <option value="Inter">Inter</option>
+    <option value="Banco do Brasil">Banco do Brasil</option>
+    <option value="Caixa">Caixa (espécie)</option>
+    <option value="Outra">Outra</option>
+  </select>
+  <div class="af-separator"></div>
+  <div class="af-label">Categoria:</div>
+  <select class="af-select" id="af-cat" onchange="applyFilters()"><option value="">Todas</option></select>
+  <div class="af-label">Centro de Custo:</div>
+  <select class="af-select" id="af-cc" onchange="applyFilters()"><option value="">Todos</option></select>
+  <div class="af-label">Fornecedor/Cliente:</div>
+  <select class="af-select" id="af-nome" onchange="applyFilters()"><option value="">Todos</option></select>
+  <div class="af-separator"></div>
+  <div class="af-label">De:</div>
+  <input class="af-input" id="af-d1" type="date" onchange="applyFilters()">
+  <div class="af-label">Até:</div>
+  <input class="af-input" id="af-d2" type="date" onchange="applyFilters()">
+  <div class="af-separator"></div>
+  <div class="af-clear" id="af-clear-btn" onclick="clearFilters()">✕ Limpar filtros</div>
+  <div id="af-active-badge" style="display:none" class="af-badge">
+    <span id="af-active-txt">0 filtros ativos</span>
+  </div>
+</div>
+
 <!-- DASHBOARD -->
 <div id="pg-dash" class="pg">
   <!-- KPIs: 5 cards — Saldo / Receita Clientes / Aporte / Saídas / Resultado -->
@@ -242,6 +287,12 @@
     </div>
     <div class="kcard"><div class="klbl">Saídas</div><div class="kval neg" id="k-sai">–</div><div class="ksub" id="k-sai-s">–</div></div>
     <div class="kcard" style="border-left-color:var(--am)"><div class="klbl">Cash Burn</div><div class="kval" id="k-res">–</div><div class="ksub" id="k-res-s">–</div></div>
+  </div>
+
+  <!-- SALDO POR CONTA -->
+  <div class="card" id="card-saldo-bancos" style="margin-bottom:12px">
+    <div class="ch"><span class="ct">Saldo por Conta Bancária</span><span class="cb cb-o" id="bancos-total-badge">–</span></div>
+    <div id="bancos-grid" style="display:grid;grid-template-columns:repeat(4,1fr);gap:0"></div>
   </div>
 
   <!-- DETALHE RECEITA (expansível) -->
@@ -421,6 +472,7 @@
         <div class="seg-pill active" onclick="setDespSeg('cat')">Categoria</div>
         <div class="seg-pill" onclick="setDespSeg('cc')">Centro de Custo</div>
         <div class="seg-pill" onclick="setDespSeg('forn')">Fornecedor</div>
+        <div class="seg-pill" onclick="setDespSeg('banco')">Conta Bancária</div>
       </div>
       <div id="desp-bars" style="max-height:320px;overflow-y:auto"></div>
     </div>
@@ -433,7 +485,7 @@
   <div class="card">
     <div class="ch"><span class="ct">Lançamentos Detalhados</span><span class="cb cb-o" id="desp-cnt">–</span></div>
     <div style="overflow-x:auto;max-height:360px;overflow-y:auto">
-      <table class="t"><thead><tr><th>Data</th><th>Nome</th><th>Descrição</th><th>Categoria</th><th>Centro Custo</th><th>Valor</th><th>Sit.</th></tr></thead>
+      <table class="t"><thead><tr><th>Data</th><th>Nome</th><th>Descrição</th><th>Categoria</th><th>Centro Custo</th><th>Conta</th><th>Valor</th><th>Sit.</th></tr></thead>
       <tbody id="desp-body"></tbody></table>
     </div>
   </div>
@@ -443,6 +495,10 @@
 <div id="pg-imp" class="pg" style="display:none">
   <div class="card">
     <div class="ch"><span class="ct">Importar Novo Extrato</span></div>
+    <div style="margin:12px 14px 0;padding:8px 12px;background:rgba(37,99,235,.06);border-left:3px solid var(--bl);border-radius:0 6px 6px 0;font-size:11px;color:var(--muted)">
+      <strong style="color:var(--bl)">⚠ Atualização do banco de dados necessária:</strong> Para suporte a múltiplas contas, execute no Supabase SQL Editor:<br>
+      <code style="background:#f0f0f0;padding:2px 6px;border-radius:3px;font-size:10px;display:inline-block;margin-top:4px">ALTER TABLE extratos ADD COLUMN IF NOT EXISTS banco TEXT DEFAULT 'Inter';</code>
+    </div>
     <div class="upload-zone" onclick="document.getElementById('fi').click()">
       <div style="font-size:32px;margin-bottom:8px">📁</div>
       <div style="font-size:13px;color:var(--muted);margin-bottom:4px;font-weight:500">Selecione o extrato financeiro</div>
@@ -460,6 +516,13 @@
       <tbody id="prev-body"></tbody></table>
     </div>
     <div style="padding:10px 14px;border-top:.5px solid var(--bd);display:flex;gap:8px;justify-content:flex-end;align-items:center">
+      <span style="font-size:11px;color:var(--muted)">Conta bancária deste extrato:</span>
+      <select id="imp-banco" style="font-size:11px;padding:3px 8px;border:.5px solid var(--bd);border-radius:6px;background:var(--surface);outline:none">
+        <option value="Inter">Inter</option>
+        <option value="Banco do Brasil">Banco do Brasil</option>
+        <option value="Caixa">Caixa (espécie)</option>
+        <option value="Outra">Outra</option>
+      </select>
       <span id="imp-saving" style="font-size:11px;color:var(--muted);display:none">Salvando no banco...</span>
       <button onclick="confirmImp()" id="btn-confirm" style="background:var(--o);color:#fff;border:none;padding:7px 18px;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer">✓ Confirmar e Salvar no Banco</button>
       <button onclick="cancelImp()" style="background:none;border:.5px solid var(--bd);padding:7px 14px;border-radius:6px;font-size:12px;cursor:pointer;color:var(--muted)">Cancelar</button>
@@ -482,6 +545,8 @@ const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY)
 let DATA=[], PENDING=[], CH={}
 let MONTHS=[], BM={}
 let AMES='all', CPG='dash', DESP_SEG='cat'
+// Filtros avançados
+let AF = { banco:'', cat:'', cc:'', nome:'', d1:'', d2:'' }
 
 // ── UTIL ─────────────────────────────────────────────────────────────────────
 const R = v => v==null||isNaN(v) ? '–' : (v<0?'-':'')+'R$ '+Math.abs(v).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})
@@ -521,7 +586,8 @@ async function carregarDoSupabase() {
       saldo: parseFloat(r.saldo_conta),
       sit: r.situacao || '',
       cat: r.categoria || '–',
-      cc: r.centro_custo || '–'
+      cc: r.centro_custo || '–',
+      banco: r.banco || 'Inter'
     }))
 
     setLoadMsg(`${DATA.length} lançamentos carregados`)
@@ -569,6 +635,7 @@ function processarDados() {
   })
   AMES = 'all'
   buildMesBtns()
+  populateFilterDropdowns()
   refresh()
 }
 
@@ -578,6 +645,7 @@ function nav(pg) {
   ;['dash','hist','diario','proj','desp','imp'].forEach(p => document.getElementById('pg-'+p).style.display = p===pg?'block':'none')
   document.querySelectorAll('.tab').forEach((el,i) => el.classList.toggle('active', ['dash','hist','diario','proj','desp','imp'][i]===pg))
   document.getElementById('fbar').style.display = pg==='imp' ? 'none' : 'flex'
+  document.getElementById('afbar').style.display = pg==='imp' ? 'none' : 'flex'
   if(DATA.length) refresh()
 }
 
@@ -591,7 +659,78 @@ function buildMesBtns() {
 }
 
 function setMes(mk) { AMES=mk; buildMesBtns(); refresh() }
-const filtTxns = () => AMES==='all' ? DATA : DATA.filter(t=>MK(t.date)===AMES)
+
+// ── FILTRO AVANÇADO ───────────────────────────────────────────────────────────
+function applyFilters() {
+  AF.banco = document.getElementById('af-banco').value
+  AF.cat   = document.getElementById('af-cat').value
+  AF.cc    = document.getElementById('af-cc').value
+  AF.nome  = document.getElementById('af-nome').value
+  AF.d1    = document.getElementById('af-d1').value
+  AF.d2    = document.getElementById('af-d2').value
+  updateFilterUI()
+  refresh()
+}
+
+function clearFilters() {
+  AF = { banco:'', cat:'', cc:'', nome:'', d1:'', d2:'' }
+  document.getElementById('af-banco').value = ''
+  document.getElementById('af-cat').value = ''
+  document.getElementById('af-cc').value = ''
+  document.getElementById('af-nome').value = ''
+  document.getElementById('af-d1').value = ''
+  document.getElementById('af-d2').value = ''
+  updateFilterUI()
+  refresh()
+}
+
+function updateFilterUI() {
+  const cnt = Object.values(AF).filter(v=>v!=='').length
+  const badge = document.getElementById('af-active-badge')
+  const clearBtn = document.getElementById('af-clear-btn')
+  const txt = document.getElementById('af-active-txt')
+  if(cnt > 0) {
+    badge.style.display = 'inline-flex'
+    clearBtn.style.display = 'inline-block'
+    txt.textContent = cnt + (cnt===1?' filtro ativo':' filtros ativos')
+  } else {
+    badge.style.display = 'none'
+    clearBtn.style.display = 'none'
+  }
+  // Highlight active selects
+  ;['af-banco','af-cat','af-cc','af-nome'].forEach(id => {
+    const el = document.getElementById(id)
+    el.classList.toggle('active', !!el.value)
+  })
+  ;['af-d1','af-d2'].forEach(id => {
+    const el = document.getElementById(id)
+    el.classList.toggle('active', !!el.value)
+  })
+}
+
+function populateFilterDropdowns() {
+  const cats  = [...new Set(DATA.map(t=>t.cat).filter(v=>v&&v!=='–'))].sort()
+  const ccs   = [...new Set(DATA.map(t=>t.cc).filter(v=>v&&v!=='–'))].sort()
+  const nomes = [...new Set(DATA.map(t=>t.nome).filter(Boolean))].sort()
+  const fill  = (id, opts, cur) => {
+    const el = document.getElementById(id)
+    el.innerHTML = '<option value="">Todos</option>' + opts.map(v=>`<option value="${v}"${v===cur?' selected':''}>${v}</option>`).join('')
+  }
+  fill('af-cat',  cats,  AF.cat)
+  fill('af-cc',   ccs,   AF.cc)
+  fill('af-nome', nomes, AF.nome)
+}
+
+const filtTxns = () => {
+  let txns = AMES==='all' ? DATA : DATA.filter(t=>MK(t.date)===AMES)
+  if(AF.banco) txns = txns.filter(t=>t.banco===AF.banco)
+  if(AF.cat)   txns = txns.filter(t=>t.cat===AF.cat)
+  if(AF.cc)    txns = txns.filter(t=>t.cc===AF.cc)
+  if(AF.nome)  txns = txns.filter(t=>t.nome===AF.nome)
+  if(AF.d1)    txns = txns.filter(t=>PK(t.date)>=AF.d1)
+  if(AF.d2)    txns = txns.filter(t=>PK(t.date)<=AF.d2)
+  return txns
+}
 const saldoIni = () => AMES==='all' ? SALDO_INICIAL : (BM[AMES]?.saldoIni ?? SALDO_INICIAL)
 
 function refresh() {
@@ -618,7 +757,7 @@ function doImport(inp) {
       const idx = kws => h.findIndex(x=>kws.some(k=>x.toLowerCase().includes(k)))
       const cD=idx(['data movimento','data']), cN=idx(['nome do fornec']), cDesc=idx(['descrição']),
             cT=idx(['tipo']), cV=idx(['valor (r$)']), cS=idx(['saldo conta']), cSt=idx(['situa']),
-            cCat=idx(['categoria 1']), cCC=idx(['centro de custo 1'])
+            cCat=idx(['categoria 1']), cCC=idx(['centro de custo 1']), cBanco=idx(['banco','conta bancaria','conta bancária'])
       const recs = []
       for(let i=hi+1;i<rows.length;i++){
         const r=rows[i]; if(!r||!r[cD]) continue
@@ -626,7 +765,7 @@ function doImport(inp) {
         const s = typeof r[cS]==='number' ? r[cS] : parseFloat(String(r[cS]||'').replace(/[R$\s]/g,'').replace(/\./g,'').replace(',','.'))||0
         const d = DK(r[cD]); if(!d||isNaN(d.getTime())) continue
         if(v===0&&s===0) continue
-        recs.push({date:d, nome:String(r[cN]||''), desc:String(r[cDesc]||r[cN]||''), tipo:String(r[cT]||''), valor:v, saldo:s, sit:String(r[cSt]||''), cat:String(r[cCat]||'–'), cc:String(r[cCC]||'–')})
+        recs.push({date:d, nome:String(r[cN]||''), desc:String(r[cDesc]||r[cN]||''), tipo:String(r[cT]||''), valor:v, saldo:s, sit:String(r[cSt]||''), cat:String(r[cCat]||'–'), cc:String(r[cCC]||'–'), banco:cBanco>=0?String(r[cBanco]||'Inter'):'Inter'})
       }
       if(!recs.length){st.innerHTML='<span style="color:var(--r)">Nenhum dado reconhecido. Verifique o arquivo.</span>';return}
       recs.sort((a,b)=>a.date-b.date)
@@ -649,6 +788,10 @@ async function confirmImp() {
   btn.disabled = true; btn.textContent = 'Salvando...'
   saving.style.display = 'inline'
 
+  // Aplica conta bancária manual para registros sem banco definido
+  const bancoPadrao = document.getElementById('imp-banco')?.value || 'Inter'
+  PENDING.forEach(t => { if(!t.banco || t.banco === 'Inter' && !t._bancoDetectado) t.banco = bancoPadrao })
+
   try {
     // 1. Apaga todos os registros antigos
     const { error: delErr } = await sb.from('extratos').delete().gte('id', '00000000-0000-0000-0000-000000000000')
@@ -668,7 +811,8 @@ async function confirmImp() {
         saldo_conta: t.saldo,
         situacao: t.sit,
         categoria: t.cat,
-        centro_custo: t.cc
+        centro_custo: t.cc,
+        banco: t.banco || 'Inter'
       }))
       const { error: insErr } = await sb.from('extratos').insert(rows)
       if(insErr) throw insErr
@@ -782,6 +926,7 @@ function renderDash() {
 
   buildChartDash(txns, totRec, totApo)
   buildAlerta()
+  renderSaldoBancos()
 }
 
 function buildChartDash(txns, _totRec, _totApo) {
@@ -891,7 +1036,48 @@ function buildAlerta() {
   }).join('')||'<div style="font-size:11px;color:var(--muted);padding:4px 0">Nenhum lançamento nos próximos 30 dias.</div>'
 }
 
-// ── HISTÓRICO ────────────────────────────────────────────────────────────────
+// ── SALDO POR BANCO ───────────────────────────────────────────────────────────
+function renderSaldoBancos() {
+  const BANCOS_DEF = ['Inter','Banco do Brasil','Caixa','Outra']
+  const BANCO_COLORS = { 'Inter':'#E87722','Banco do Brasil':'#2563eb','Caixa':'#16a34a','Outra':'#7c3aed' }
+  // Detecta bancos que realmente têm dados
+  const bancosPresentes = [...new Set(DATA.map(t=>t.banco).filter(Boolean))]
+  if(!bancosPresentes.length) {
+    document.getElementById('card-saldo-bancos').style.display = 'none'
+    return
+  }
+  document.getElementById('card-saldo-bancos').style.display = ''
+  const txns = filtTxns()
+  // Calcula entradas e saídas por banco no período filtrado
+  const byBanco = {}
+  bancosPresentes.forEach(b => byBanco[b] = { ent:0, sai:0, txns:0 })
+  txns.forEach(t => {
+    const b = t.banco || 'Inter'
+    if(!byBanco[b]) byBanco[b] = { ent:0, sai:0, txns:0 }
+    if(t.valor > 0) byBanco[b].ent += t.valor
+    else byBanco[b].sai += t.valor
+    byBanco[b].txns++
+  })
+  // Saldo mais recente por banco (último lançamento conciliado de cada banco)
+  const saldosBanco = {}
+  DATA.filter(isReal).forEach(t => { saldosBanco[t.banco || 'Inter'] = t.saldo })
+  const totalSaldo = Object.values(saldosBanco).reduce((s,v)=>s+v,0)
+  document.getElementById('bancos-total-badge').textContent = R(totalSaldo)
+  document.getElementById('bancos-grid').innerHTML = bancosPresentes.map(b => {
+    const cor = BANCO_COLORS[b] || '#666'
+    const s = saldosBanco[b] || 0
+    const d = byBanco[b] || {ent:0,sai:0,txns:0}
+    return `<div style="padding:12px 16px;border-right:.5px solid var(--bd);border-left:3px solid ${cor}">
+      <div style="font-size:10px;font-weight:700;color:${cor};text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">${b}</div>
+      <div style="font-size:16px;font-weight:600;color:${s>=0?'var(--text)':'var(--r)'}">${R(s)}</div>
+      <div style="font-size:10px;color:var(--muted);margin-top:4px">${d.txns} lançamentos</div>
+      <div style="display:flex;gap:8px;margin-top:4px;font-size:10px">
+        <span class="pos">↑ ${R(d.ent)}</span>
+        <span class="neg">↓ ${R(Math.abs(d.sai))}</span>
+      </div>
+    </div>`
+  }).join('')
+}
 function renderHist() {
   const meses = AMES==='all' ? MONTHS : [AMES]
   document.getElementById('hist-lbl').textContent = (AMES==='all'
@@ -1087,7 +1273,7 @@ function renderProj() {
 // ── DESPESAS ─────────────────────────────────────────────────────────────────
 function setDespSeg(s) {
   DESP_SEG=s
-  document.querySelectorAll('.seg-pill').forEach((el,i)=>el.classList.toggle('active',['cat','cc','forn'][i]===s))
+  document.querySelectorAll('.seg-pill').forEach((el,i)=>el.classList.toggle('active',['cat','cc','forn','banco'][i]===s))
   renderDespBars()
 }
 
@@ -1104,12 +1290,18 @@ function renderDesp() {
   renderDespBars()
   buildChartDesp()
   document.getElementById('desp-cnt').textContent=txns.length+' lançamentos'
-  document.getElementById('desp-body').innerHTML=[...txns].sort((a,b)=>a.valor-b.valor).map(t=>`<tr><td>${t.date.toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit'})}</td><td style="max-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${t.nome}</td><td style="max-width:110px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--muted)">${t.desc}</td><td style="max-width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:10px;color:var(--muted)">${t.cat}</td><td style="font-size:10px;color:var(--muted)">${t.cc}</td><td class="neg">${R(t.valor)}</td><td><span style="font-size:9px;font-weight:600;color:${isReal(t)?'var(--g)':'var(--bl)'}">${isReal(t)?'✓':'◌'}</span></td></tr>`).join('')
+  document.getElementById('desp-body').innerHTML=[...txns].sort((a,b)=>a.valor-b.valor).map(t=>`<tr><td>${t.date.toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit'})}</td><td style="max-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${t.nome}</td><td style="max-width:110px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--muted)">${t.desc}</td><td style="max-width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:10px;color:var(--muted)">${t.cat}</td><td style="font-size:10px;color:var(--muted)">${t.cc}</td><td style="font-size:10px;color:var(--muted)">${t.banco||'–'}</td><td class="neg">${R(t.valor)}</td><td><span style="font-size:9px;font-weight:600;color:${isReal(t)?'var(--g)':'var(--bl)'}">${isReal(t)?'✓':'◌'}</span></td></tr>`).join('')
 }
 
 function renderDespBars() {
   const txns=filtTxns().filter(t=>t.valor<0), grp={}
-  txns.forEach(t=>{const k=DESP_SEG==='cat'?t.cat:DESP_SEG==='cc'?t.cc:(t.nome||'–').substring(0,32);grp[k]=(grp[k]||0)+Math.abs(t.valor)})
+  txns.forEach(t=>{
+    const k = DESP_SEG==='cat' ? t.cat
+            : DESP_SEG==='cc'  ? t.cc
+            : DESP_SEG==='banco' ? (t.banco||'–')
+            : (t.nome||'–').substring(0,32)
+    grp[k]=(grp[k]||0)+Math.abs(t.valor)
+  })
   const sorted=Object.entries(grp).sort((a,b)=>b[1]-a[1]), max=sorted[0]?.[1]||1
   document.getElementById('desp-bars').innerHTML=sorted.map(([k,v])=>`<div class="bar-row"><div class="bar-label" title="${k}">${k==='–'||k==='nan'?'Sem categoria':k}</div><div class="bar-track"><div class="bar-fill" style="width:${Math.round(v/max*100)}%"></div></div><div class="bar-val neg">${R(v)}</div></div>`).join('')
 }
