@@ -814,8 +814,7 @@ const DRE_GRUPOS = [
   { id:'comercial',  label:'Comercial / Marketing',     cor:'#E87722', match: c => /9\.1\.3|9\.1\.4|9\.1\.5|9\.1\.6|8\.2\.11/i.test(c) },
   { id:'ga',         label:'G&A (Administrativo)',      cor:'#d97706', match: c => /9\.2\.3|9\.2\.4|9\.2\.5|9\.2\.6|9\.2\.8/i.test(c) },
   { id:'impostos',   label:'Impostos',                  cor:'#dc2626', match: c => /5\.4/i.test(c) },
-  { id:'financeiro', label:'Financeiro',                cor:'#64748b', match: c => /10\.5/i.test(c) },
-  { id:'outras',     label:'Outras Despesas',           cor:'#94a3b8', match: c => /11\.2/i.test(c) },
+  { id:'outras',     label:'Outras Despesas',           cor:'#94a3b8', match: c => /11\.2|10\.5/i.test(c) },
 ]
 let SALDOS_INICIAIS = {}  // { 'Inter - Acta': 12345.00, ... }
 
@@ -1878,13 +1877,13 @@ function renderExec() {
     const id = g ? g.id : 'outras'
     gruposAcc[id] = (gruposAcc[id]||0) + Math.abs(t.valor)
   })
-  const totalDespOper = Object.entries(gruposAcc).filter(([id])=>id!=='outras').reduce((s,[,v])=>s+v,0)
+  const totalDespOper = Object.entries(gruposAcc).filter(([id])=>id!=='outras'&&id!=='financeiro').reduce((s,[,v])=>s+v,0)
   const totalDespDRE  = Object.values(gruposAcc).reduce((s,v)=>s+v,0)
   const recLiq    = totRec - (gruposAcc.impostos||0)
   const lucBruto  = recLiq - (gruposAcc.cogs||0)
   const ebitda    = totRec - (gruposAcc.impostos||0) - (gruposAcc.cogs||0) - totalDespOper
   const naoOperRec  = totApo
-  const naoOperDesp = gruposAcc.outras||0
+  const naoOperDesp = (gruposAcc.outras||0) + (gruposAcc.financeiro||0)
   const resultado = ebitda + naoOperRec - naoOperDesp
   const saldoAtual = calcSaldoAtual()
 
@@ -2000,7 +1999,6 @@ function renderExec() {
     dreL('P&D / Tecnologia',      -(gruposAcc.pd||0),         {indent:true}),
     dreL('Comercial / Marketing', -(gruposAcc.comercial||0),  {indent:true}),
     dreL('G&A (Administrativo)',  -(gruposAcc.ga||0),         {indent:true}),
-    dreL('Financeiro',            -(gruposAcc.financeiro||0), {indent:true}),
     dreL('Total Desp. Operacionais', -totalDespOper, {bold:true}),
     dreL('EBITDA', ebitda, {bold:true, rec:true}),
     dreL('NÃO OPERACIONAL', null, {sep:true}),
@@ -2149,13 +2147,13 @@ function renderDRE() {
       const g = dreGrupo(x)
       if (g) grupos[g.id] = (grupos[g.id] || 0) + Math.abs(x.valor)
     })
-    // Despesas operacionais = todas exceto "outras" (não operacional)
-    const totalDespOper = Object.entries(grupos).filter(([id])=>id!=='outras').reduce((s,[,v])=>s+v,0)
+    // Despesas operacionais = todas exceto "outras" e "financeiro" (ambos não operacionais)
+    const totalDespOper = Object.entries(grupos).filter(([id])=>id!=='outras'&&id!=='financeiro').reduce((s,[,v])=>s+v,0)
     const totalDesp = Object.values(grupos).reduce((s,v)=>s+v,0)
     const lucBruto  = rec - (grupos.cogs||0) - (grupos.impostos||0)
     const ebitda    = rec - totalDespOper - (grupos.cogs||0) - (grupos.impostos||0)
-    const naoOperRec = apo   // Receitas não operacionais = aportes
-    const naoOperDesp = grupos.outras||0  // Despesas não operacionais = 11.2
+    const naoOperRec  = apo
+    const naoOperDesp = (grupos.outras||0) + (grupos.financeiro||0)  // 11.2 + 10.5
     const resultado = ebitda + naoOperRec - naoOperDesp
     return { mk, rec, apo, grupos, totalDesp, totalDespOper, lucBruto, ebitda, naoOperRec, naoOperDesp, resultado }
   })
@@ -2316,14 +2314,13 @@ function renderDRE() {
   rows += linha('P&D / Tecnologia',         m => -(m.grupos.pd||0),         {indent:true, cor:'var(--r)'})
   rows += linha('Comercial / Marketing',    m => -(m.grupos.comercial||0),  {indent:true, cor:'var(--r)'})
   rows += linha('G&A (Administrativo)',     m => -(m.grupos.ga||0),         {indent:true, cor:'var(--r)'})
-  rows += linha('Financeiro',               m => -(m.grupos.financeiro||0), {indent:true, cor:'var(--r)'})
   rows += linha('Total Despesas Operacionais', m => -m.totalDespOper, {bold:true, cor:'var(--r)'})
 
   rows += linha('EBITDA', null, {separator:true})
   rows += linha('EBITDA',                   m => m.ebitda, {bold:true, margem:true, recBase: m => m.rec})
 
   rows += linha('NÃO OPERACIONAL', null, {separator:true})
-  rows += linha('Receitas Não Operacionais (Aportes)', m => m.naoOperRec,  {indent:true, cor:'var(--bl)'})
+  rows += linha('Receitas Não Operacionais (Aportes)', m => m.naoOperRec,   {indent:true, cor:'var(--bl)'})
   rows += linha('Despesas Não Operacionais',           m => -m.naoOperDesp, {indent:true, cor:'var(--r)'})
   rows += linha('Resultado Não Operacional Líquido',   m => m.naoOperRec - m.naoOperDesp, {bold:true})
 
