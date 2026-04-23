@@ -1878,11 +1878,14 @@ function renderExec() {
     const id = g ? g.id : 'outras'
     gruposAcc[id] = (gruposAcc[id]||0) + Math.abs(t.valor)
   })
-  const totalDespDRE = Object.values(gruposAcc).reduce((s,v)=>s+v,0)
-  const recLiq  = totRec - (gruposAcc.impostos||0)
-  const lucBruto= recLiq - (gruposAcc.cogs||0)
-  const ebitda  = totRec - totalDespDRE
-  const resultado = totRec + totApo - totalDespDRE
+  const totalDespOper = Object.entries(gruposAcc).filter(([id])=>id!=='outras').reduce((s,[,v])=>s+v,0)
+  const totalDespDRE  = Object.values(gruposAcc).reduce((s,v)=>s+v,0)
+  const recLiq    = totRec - (gruposAcc.impostos||0)
+  const lucBruto  = recLiq - (gruposAcc.cogs||0)
+  const ebitda    = totRec - (gruposAcc.impostos||0) - (gruposAcc.cogs||0) - totalDespOper
+  const naoOperRec  = totApo
+  const naoOperDesp = gruposAcc.outras||0
+  const resultado = ebitda + naoOperRec - naoOperDesp
   const saldoAtual = calcSaldoAtual()
 
   // ── Cabeçalho ─────────────────────────────────────────────────────────────
@@ -1984,24 +1987,26 @@ function renderExec() {
     </div>`
   }
   document.getElementById('exec-dre-body').innerHTML = [
-    dreL('RECEITAS', null, {sep:true}),
+    dreL('RECEITAS OPERACIONAIS', null, {sep:true}),
     dreL('Receita Bruta (Clientes)', totRec),
-    dreL('Aportes / Empréstimos', totApo),
-    dreL('Total Entradas', totRec+totApo, {bold:true}),
-    dreL('DEDUÇÕES', null, {sep:true}),
+    dreL('DEDUÇÕES E IMPOSTOS', null, {sep:true}),
     dreL('Impostos sobre Vendas', -(gruposAcc.impostos||0), {indent:true}),
     dreL('Receita Líquida', recLiq, {bold:true, rec:true}),
     dreL('CUSTO DOS SERVIÇOS', null, {sep:true}),
     dreL('Custo do Serviço (COGS)', -(gruposAcc.cogs||0), {indent:true}),
     dreL('Lucro Bruto', lucBruto, {bold:true, rec:true}),
     dreL('DESPESAS OPERACIONAIS', null, {sep:true}),
-    dreL('Pessoal', -(gruposAcc.pessoal||0), {indent:true}),
-    dreL('P&D / Tecnologia', -(gruposAcc.pd||0), {indent:true}),
-    dreL('Comercial / Marketing', -(gruposAcc.comercial||0), {indent:true}),
-    dreL('G&A (Administrativo)', -(gruposAcc.ga||0), {indent:true}),
-    dreL('Financeiro', -(gruposAcc.financeiro||0), {indent:true}),
-    dreL('Outras', -(gruposAcc.outras||0), {indent:true}),
+    dreL('Pessoal',               -(gruposAcc.pessoal||0),    {indent:true}),
+    dreL('P&D / Tecnologia',      -(gruposAcc.pd||0),         {indent:true}),
+    dreL('Comercial / Marketing', -(gruposAcc.comercial||0),  {indent:true}),
+    dreL('G&A (Administrativo)',  -(gruposAcc.ga||0),         {indent:true}),
+    dreL('Financeiro',            -(gruposAcc.financeiro||0), {indent:true}),
+    dreL('Total Desp. Operacionais', -totalDespOper, {bold:true}),
     dreL('EBITDA', ebitda, {bold:true, rec:true}),
+    dreL('NÃO OPERACIONAL', null, {sep:true}),
+    dreL('Receitas Não Operacionais (Aportes)', naoOperRec,   {indent:true}),
+    dreL('Despesas Não Operacionais',           -naoOperDesp, {indent:true}),
+    dreL('Resultado Não Operacional',           naoOperRec - naoOperDesp, {bold:true}),
     dreL('RESULTADO FINAL', resultado, {result:true, rec:true}),
   ].join('')
 
@@ -2144,22 +2149,29 @@ function renderDRE() {
       const g = dreGrupo(x)
       if (g) grupos[g.id] = (grupos[g.id] || 0) + Math.abs(x.valor)
     })
+    // Despesas operacionais = todas exceto "outras" (não operacional)
+    const totalDespOper = Object.entries(grupos).filter(([id])=>id!=='outras').reduce((s,[,v])=>s+v,0)
     const totalDesp = Object.values(grupos).reduce((s,v)=>s+v,0)
-    const lucBruto  = rec - grupos.cogs - grupos.impostos
-    const ebitda    = rec - totalDesp
-    const resultado = rec + apo - totalDesp
-    return { mk, rec, apo, grupos, totalDesp, lucBruto, ebitda, resultado }
+    const lucBruto  = rec - (grupos.cogs||0) - (grupos.impostos||0)
+    const ebitda    = rec - totalDespOper - (grupos.cogs||0) - (grupos.impostos||0)
+    const naoOperRec = apo   // Receitas não operacionais = aportes
+    const naoOperDesp = grupos.outras||0  // Despesas não operacionais = 11.2
+    const resultado = ebitda + naoOperRec - naoOperDesp
+    return { mk, rec, apo, grupos, totalDesp, totalDespOper, lucBruto, ebitda, naoOperRec, naoOperDesp, resultado }
   })
 
   // Acumulado
   const acc = {
-    rec: porMes.reduce((s,m)=>s+m.rec,0),
-    apo: porMes.reduce((s,m)=>s+m.apo,0),
-    totalDesp: porMes.reduce((s,m)=>s+m.totalDesp,0),
+    rec:          porMes.reduce((s,m)=>s+m.rec,0),
+    apo:          porMes.reduce((s,m)=>s+m.apo,0),
+    totalDesp:    porMes.reduce((s,m)=>s+m.totalDesp,0),
+    totalDespOper:porMes.reduce((s,m)=>s+m.totalDespOper,0),
     grupos: {},
-    lucBruto: porMes.reduce((s,m)=>s+m.lucBruto,0),
-    ebitda: porMes.reduce((s,m)=>s+m.ebitda,0),
-    resultado: porMes.reduce((s,m)=>s+m.resultado,0),
+    lucBruto:     porMes.reduce((s,m)=>s+m.lucBruto,0),
+    ebitda:       porMes.reduce((s,m)=>s+m.ebitda,0),
+    naoOperRec:   porMes.reduce((s,m)=>s+m.naoOperRec,0),
+    naoOperDesp:  porMes.reduce((s,m)=>s+m.naoOperDesp,0),
+    resultado:    porMes.reduce((s,m)=>s+m.resultado,0),
   }
   DRE_GRUPOS.forEach(g => {
     acc.grupos[g.id] = porMes.reduce((s,m)=>s+(m.grupos[g.id]||0),0)
@@ -2289,36 +2301,34 @@ function renderDRE() {
   // Estrutura do DRE
   let rows = ''
 
-  // RECEITAS
-  rows += linha('RECEITAS', null, {separator:true})
-  rows += linha('Receita Bruta (Clientes)', m => m.rec, {cor:'var(--g)', bold:false})
-  rows += linha('Aportes / Empréstimos',    m => m.apo, {cor:'var(--bl)'})
-  rows += linha('Total Entradas',           m => m.rec + m.apo, {bold:true})
-
-  // DEDUÇÕES
+  rows += linha('RECEITAS OPERACIONAIS', null, {separator:true})
+  rows += linha('Receita Bruta (Clientes)', m => m.rec, {cor:'var(--g)'})
   rows += linha('DEDUÇÕES E IMPOSTOS', null, {separator:true})
   rows += linha('Impostos sobre Vendas',    m => -(m.grupos.impostos||0), {indent:true, cor:'var(--r)'})
   rows += linha('Receita Líquida',          m => m.rec - (m.grupos.impostos||0), {bold:true})
 
-  // COGS
   rows += linha('CUSTO DOS SERVIÇOS (COGS)', null, {separator:true})
   rows += linha('Custo do Serviço',         m => -(m.grupos.cogs||0), {indent:true, cor:'var(--r)'})
   rows += linha('Lucro Bruto',              m => m.lucBruto, {bold:true, margem:true, recBase: m => m.rec})
 
-  // DESPESAS OPERACIONAIS
   rows += linha('DESPESAS OPERACIONAIS', null, {separator:true})
   rows += linha('Pessoal',                  m => -(m.grupos.pessoal||0),    {indent:true, cor:'var(--r)'})
   rows += linha('P&D / Tecnologia',         m => -(m.grupos.pd||0),         {indent:true, cor:'var(--r)'})
   rows += linha('Comercial / Marketing',    m => -(m.grupos.comercial||0),  {indent:true, cor:'var(--r)'})
   rows += linha('G&A (Administrativo)',     m => -(m.grupos.ga||0),         {indent:true, cor:'var(--r)'})
   rows += linha('Financeiro',               m => -(m.grupos.financeiro||0), {indent:true, cor:'var(--r)'})
-  rows += linha('Outras Despesas',          m => -(m.grupos.outras||0),     {indent:true, cor:'var(--r)'})
-  rows += linha('Total Despesas Operacionais', m => -(m.totalDesp - (m.grupos.impostos||0) - (m.grupos.cogs||0)), {bold:true, cor:'var(--r)'})
+  rows += linha('Total Despesas Operacionais', m => -m.totalDespOper, {bold:true, cor:'var(--r)'})
 
-  // RESULTADOS
-  rows += linha('RESULTADOS', null, {separator:true})
+  rows += linha('EBITDA', null, {separator:true})
   rows += linha('EBITDA',                   m => m.ebitda, {bold:true, margem:true, recBase: m => m.rec})
-  rows += linha('Resultado Final (c/ Aportes)', m => m.resultado, {bold:true, margem:true, recBase: m => m.rec + m.apo})
+
+  rows += linha('NÃO OPERACIONAL', null, {separator:true})
+  rows += linha('Receitas Não Operacionais (Aportes)', m => m.naoOperRec,  {indent:true, cor:'var(--bl)'})
+  rows += linha('Despesas Não Operacionais',           m => -m.naoOperDesp, {indent:true, cor:'var(--r)'})
+  rows += linha('Resultado Não Operacional Líquido',   m => m.naoOperRec - m.naoOperDesp, {bold:true})
+
+  rows += linha('RESULTADO FINAL', null, {separator:true})
+  rows += linha('Resultado Final',          m => m.resultado, {bold:true, margem:true, recBase: m => m.rec})
 
   document.getElementById('dre-tbody').innerHTML = rows
 }
