@@ -1913,6 +1913,13 @@ function renderExec() {
   document.getElementById('exec-fc-badge').textContent = periodoLbl
   document.getElementById('exec-chart-badge').textContent = periodoLbl
 
+  // Saldo inicial acumulado — mesmo padrão do Histórico
+  const temConfig = Object.keys(SALDOS_INICIAIS).length > 0
+  const saldoIniBase = f.banco
+    ? (SALDOS_INICIAIS[f.banco] ?? null)
+    : temConfig ? Object.values(SALDOS_INICIAIS).reduce((s,v)=>s+v,0) : null
+  let saldoCorrente = saldoIniBase
+
   let fcTotRec=0, fcTotApo=0, fcTotSai=0
   const fcRows = meses.map(mk => {
     const m = BM[mk]
@@ -1924,21 +1931,33 @@ function renderExec() {
     const res = rec + apo + sai
     fcTotRec+=rec; fcTotApo+=apo; fcTotSai+=sai
     const cor = m.real?'var(--g)':m.parcial?'var(--am)':'var(--bl)'
+
+    let saldoIniVal, saldoFimVal
+    if(saldoCorrente !== null) {
+      saldoIniVal = saldoCorrente
+      const movReal = txMes.filter(t=>isReal(t)||t.sit==='Transferido').reduce((s,t)=>s+t.valor,0)
+      saldoCorrente = saldoCorrente + movReal
+      saldoFimVal = saldoCorrente
+    } else {
+      saldoIniVal = m.saldoIni
+      saldoFimVal = m.saldoFim
+    }
+
     return `<tr>
       <td><span style="font-weight:600">${MNm(mk).toUpperCase()}</span> <span style="font-size:8px;color:${cor}">${m.real?'✓':m.parcial?'~':'○'}</span></td>
-      <td>${R(m.saldoIni)}</td>
+      <td>${R(saldoIniVal)}</td>
       <td class="pos">${rec>0?R(rec):'–'}</td>
       <td class="info">${apo>0?R(apo):'–'}</td>
       <td class="neg">${sai<0?R(Math.abs(sai)):'–'}</td>
       <td class="${cb>=0?'pos':'neg'}">${R(cb)}</td>
       <td class="${res>=0?'pos':'neg'}">${R(res)}</td>
-      <td style="font-weight:600" class="${m.saldoFim>=0?'pos':'neg'}">${R(m.saldoFim)}</td>
+      <td style="font-weight:600" class="${saldoFimVal>=0?'pos':'neg'}">${R(saldoFimVal)}</td>
     </tr>`
   })
   document.getElementById('exec-fc-body').innerHTML = fcRows.join('')
   const fcTotCB = fcTotRec+fcTotSai, fcTotRes = fcTotRec+fcTotApo+fcTotSai
-  const saldoFimTot = meses.length ? BM[meses[meses.length-1]].saldoFim : 0
-  const saldoIniTot = meses.length ? BM[meses[0]].saldoIni : 0
+  const saldoIniTot = saldoIniBase !== null ? saldoIniBase : (meses.length ? BM[meses[0]].saldoIni : 0)
+  const saldoFimTot = saldoCorrente !== null ? saldoCorrente : (meses.length ? BM[meses[meses.length-1]].saldoFim : 0)
   document.getElementById('exec-fc-foot').innerHTML = `<tr class="exec-tot">
     <td>TOTAL</td><td>${R(saldoIniTot)}</td>
     <td class="pos">${R(fcTotRec)}</td><td class="info">${R(fcTotApo)}</td>
