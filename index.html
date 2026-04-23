@@ -143,13 +143,65 @@
     .tl-val { flex:0 0 86px; text-align:right; font-weight:500; }
     .tl-bal { flex:0 0 90px; text-align:right; font-weight:600; }
 
-    @media(max-width:768px) {
+    @media print {
+      body { background:#fff !important; }
+      .header, .tabs, .mfbar, .afbar, #exec-controls { display:none !important; }
+      #pg-exec { display:block !important; padding:0 !important; }
+      .exec-card { box-shadow:none !important; border:.5px solid #ccc !important; break-inside:avoid; }
+      .exec-page { max-width:100% !important; padding:12px !important; }
+      @page { margin:15mm; size:A4 landscape; }
+    }
       #kgrid-dash { grid-template-columns:repeat(2,1fr) !important; }
       .kgrid { grid-template-columns:repeat(2,1fr); }
       .tcol { grid-template-columns:1fr; }
       .aporte-grid { grid-template-columns:1fr; }
       .bar-label { flex:0 0 120px; }
     }
+
+    /* ── VISÃO EXECUTIVA ── */
+    .exec-page { max-width:1400px; margin:0 auto; padding:14px 16px; }
+    .exec-header { background:var(--dk); border-radius:8px; padding:16px 20px; margin-bottom:14px; display:flex; align-items:center; justify-content:space-between; border-bottom:3px solid var(--o); }
+    .exec-logo-name { font-size:22px; font-weight:900; color:var(--o); letter-spacing:4px; font-family:'Arial Black',sans-serif; }
+    .exec-logo-sub { font-size:8px; letter-spacing:5px; color:#888; }
+    .exec-title { font-size:15px; font-weight:700; color:#fff; letter-spacing:.5px; text-align:center; }
+    .exec-subtitle { font-size:11px; color:#888; margin-top:2px; text-align:center; }
+    .exec-periodo { font-size:13px; font-weight:700; color:var(--o); text-align:right; }
+    .exec-atualizado { font-size:10px; color:#666; margin-top:2px; text-align:right; }
+    .exec-kpis { display:grid; grid-template-columns:repeat(6,1fr); gap:8px; margin-bottom:14px; }
+    .exec-kcard { background:var(--surface); border-radius:6px; padding:10px 12px; border-left:3px solid var(--o); box-shadow:0 1px 3px rgba(0,0,0,.06); }
+    .exec-klbl { font-size:9px; color:var(--muted); text-transform:uppercase; letter-spacing:.5px; margin-bottom:2px; }
+    .exec-kval { font-size:16px; font-weight:700; line-height:1.2; }
+    .exec-ksub { font-size:9px; margin-top:2px; }
+    .exec-grid-2 { display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:12px; }
+    .exec-grid-3 { display:grid; grid-template-columns:1.4fr 1fr; gap:12px; margin-bottom:12px; }
+    .exec-card { background:var(--surface); border-radius:8px; border:.5px solid var(--bd); box-shadow:0 1px 3px rgba(0,0,0,.05); overflow:hidden; }
+    .exec-ch { padding:8px 13px; background:var(--dk); display:flex; align-items:center; justify-content:space-between; }
+    .exec-ct { font-size:10px; font-weight:700; color:#fff; text-transform:uppercase; letter-spacing:.5px; }
+    .exec-cb { font-size:9px; font-weight:700; padding:2px 7px; border-radius:8px; }
+    .exec-t { width:100%; border-collapse:collapse; font-size:10px; }
+    .exec-t th { background:#f4f4f4; padding:4px 8px; text-align:right; font-weight:700; color:var(--muted); font-size:9px; border-bottom:1px solid var(--bd); text-transform:uppercase; }
+    .exec-t th:first-child { text-align:left; }
+    .exec-t td { padding:3px 8px; text-align:right; border-bottom:.5px solid var(--bd); }
+    .exec-t td:first-child { text-align:left; font-weight:500; }
+    .exec-t tr.exec-tot td { background:#f0f0f0; font-weight:700; border-top:1.5px solid var(--bd); }
+    .dre-linha { display:flex; justify-content:space-between; align-items:center; padding:4px 13px; border-bottom:.5px solid var(--bd); font-size:11px; }
+    .dre-linha.dre-sep { background:#f8f8f8; padding:3px 13px; }
+    .dre-linha.dre-sep span:first-child { font-size:9px; font-weight:700; color:var(--muted); text-transform:uppercase; letter-spacing:.5px; }
+    .dre-linha.dre-bold { background:#f4f4f4; font-weight:700; font-size:12px; }
+    .dre-linha.dre-result { background:var(--dk); }
+    .dre-linha.dre-result span { color:#fff !important; font-weight:700; font-size:12px; }
+    .dre-lbl.indent { padding-left:14px; color:var(--muted); }
+    .dre-pct { font-size:9px; color:var(--muted); min-width:38px; text-align:right; }
+    .exec-contas { display:grid; gap:0; }
+    .exec-conta-card { padding:10px 13px; border-right:.5px solid var(--bd); }
+    .exec-conta-card:last-child { border-right:none; }
+    .exec-conta-nome { font-size:9px; font-weight:700; text-transform:uppercase; letter-spacing:.3px; margin-bottom:3px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .exec-proj-row { display:flex; align-items:center; gap:8px; padding:4px 13px; border-bottom:.5px solid var(--bd); font-size:10px; }
+    .exec-proj-dot { width:7px; height:7px; border-radius:50%; flex-shrink:0; }
+    .exec-proj-date { flex:0 0 68px; color:var(--muted); font-size:9px; }
+    .exec-proj-desc { flex:1; color:var(--muted); font-size:9px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .exec-proj-val { flex:0 0 78px; text-align:right; font-weight:600; }
+    .exec-proj-sal { flex:0 0 82px; text-align:right; font-weight:700; }
 
     /* ── LOGIN ── */
     #login-screen { position:fixed; inset:0; background:#1a1a1a; z-index:9000; display:none; align-items:center; justify-content:center; flex-direction:column; }
@@ -234,6 +286,7 @@
   <div class="tab" onclick="nav('proj')">Projeção</div>
   <div class="tab" onclick="nav('desp')">Despesas</div>
   <div class="tab" onclick="nav('dre')">DRE</div>
+  <div class="tab" onclick="nav('exec')">★ Visão Executiva</div>
   <div class="tab" onclick="nav('imp')">Importar</div>
   <div class="tab" onclick="nav('cfg')">⚙ Configurações</div>
 </div>
@@ -528,6 +581,140 @@
   </div>
 </div>
 
+<!-- VISÃO EXECUTIVA -->
+<div id="pg-exec" style="display:none">
+  <div class="exec-page">
+
+    <!-- Controles (não aparecem na impressão) -->
+    <div id="exec-controls" style="background:#f0f0f0;border-bottom:1px solid rgba(0,0,0,.1);padding:7px 0 7px 0;margin-bottom:10px;border-radius:8px 8px 0 0">
+      <!-- Linha 1: Mês -->
+      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:0 10px 6px;border-bottom:.5px solid rgba(0,0,0,.08)">
+        <span class="mfl">Mês:</span>
+        <div id="exec-mbtns" style="display:flex;gap:5px;flex-wrap:wrap"></div>
+        <div style="margin-left:auto">
+          <button onclick="window.print()" style="background:var(--dk);color:#fff;border:none;padding:5px 14px;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer">🖨 Imprimir / PDF</button>
+        </div>
+      </div>
+      <!-- Linha 2: Filtros avançados -->
+      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:6px 10px 0">
+        <span class="afl">Filtros:</span>
+        <div class="af-label">Conta:</div>
+        <select class="af-select" id="exec-banco" onchange="renderExec()"><option value="">Todas as contas</option></select>
+        <div class="af-separator"></div>
+        <div class="af-label">Categoria:</div>
+        <select class="af-select" id="exec-cat" onchange="renderExec()"><option value="">Todas</option></select>
+        <div class="af-label">Centro de Custo:</div>
+        <select class="af-select" id="exec-cc" onchange="renderExec()"><option value="">Todos</option></select>
+        <div class="af-label">Fornecedor/Cliente:</div>
+        <select class="af-select" id="exec-nome" onchange="renderExec()"><option value="">Todos</option></select>
+        <div class="af-separator"></div>
+        <div class="af-label">Grupo:</div>
+        <select class="af-select" id="exec-grupo" onchange="renderExec()"><option value="">Todos os grupos</option></select>
+        <div class="af-separator"></div>
+        <div class="af-label">De:</div>
+        <input class="af-input" id="exec-d1" type="date" onchange="renderExec()">
+        <div class="af-label">Até:</div>
+        <input class="af-input" id="exec-d2" type="date" onchange="renderExec()">
+        <div class="af-separator"></div>
+        <div class="af-clear" id="exec-clear-btn" onclick="clearExecFilters()" style="display:none">✕ Limpar</div>
+        <div id="exec-active-badge" style="display:none" class="af-badge"><span id="exec-active-txt">0 filtros ativos</span></div>
+      </div>
+    </div>
+
+    <!-- Cabeçalho executivo -->
+    <div class="exec-header">
+      <div style="display:flex;align-items:center;gap:12px">
+        <svg width="40" height="40" viewBox="0 0 40 40"><rect width="40" height="40" rx="7" fill="#E87722"/><text x="4" y="30" font-size="26" font-weight="900" fill="white" font-family="Arial Black,sans-serif">A</text></svg>
+        <div><div class="exec-logo-name">ACTA</div><div class="exec-logo-sub">R O B O T I C S</div></div>
+      </div>
+      <div>
+        <div class="exec-title">RELATÓRIO EXECUTIVO — GESTÃO FINANCEIRA</div>
+        <div class="exec-subtitle" id="exec-subtit">Fluxo de Caixa & Demonstrativo de Resultado</div>
+      </div>
+      <div>
+        <div class="exec-periodo" id="exec-periodo-hdr">–</div>
+        <div class="exec-atualizado" id="exec-atualizado">–</div>
+        <div style="text-align:right;margin-top:4px"><span id="exec-status-hdr" class="exec-cb" style="padding:3px 10px;border-radius:10px;font-size:10px;font-weight:700">–</span></div>
+      </div>
+    </div>
+
+    <!-- KPIs -->
+    <div class="exec-kpis" id="exec-kpis"></div>
+
+    <!-- Fluxo de Caixa + DRE -->
+    <div class="exec-grid-3" style="margin-bottom:12px">
+      <div class="exec-card">
+        <div class="exec-ch">
+          <span class="exec-ct">Fluxo de Caixa Mensal</span>
+          <span class="exec-cb" id="exec-fc-badge" style="background:var(--o);color:#fff">–</span>
+        </div>
+        <div style="overflow-x:auto">
+          <table class="exec-t">
+            <thead><tr>
+              <th style="text-align:left">Mês</th>
+              <th>Saldo Ini</th>
+              <th style="color:#16a34a">Receita</th>
+              <th style="color:#2563eb">Aportes</th>
+              <th style="color:#dc2626">Saídas</th>
+              <th style="color:#d97706">Cash Burn</th>
+              <th>Resultado</th>
+              <th>Saldo Fim</th>
+            </tr></thead>
+            <tbody id="exec-fc-body"></tbody>
+            <tfoot id="exec-fc-foot"></tfoot>
+          </table>
+        </div>
+      </div>
+      <div class="exec-card">
+        <div class="exec-ch">
+          <span class="exec-ct">DRE — Demonstrativo de Resultado</span>
+          <span class="exec-cb" id="exec-dre-badge" style="background:var(--o);color:#fff">–</span>
+        </div>
+        <div id="exec-dre-body"></div>
+      </div>
+    </div>
+
+    <!-- Gráfico evolução -->
+    <div class="exec-card" style="margin-bottom:12px">
+      <div class="exec-ch">
+        <span class="exec-ct">Evolução do Caixa — Receita vs Despesa</span>
+        <span class="exec-cb" id="exec-chart-badge" style="background:var(--o);color:#fff">–</span>
+      </div>
+      <div style="padding:12px 14px"><div style="position:relative;height:180px"><canvas id="c-exec"></canvas></div></div>
+      <div class="lgd" style="padding:5px 14px 8px">
+        <span><span class="ld" style="background:#E87722"></span>Saldo</span>
+        <span><span class="ld" style="background:#16a34a"></span>Receita</span>
+        <span><span class="ld" style="background:#2563eb"></span>Aportes</span>
+        <span><span class="ld" style="background:#dc2626"></span>Despesas</span>
+      </div>
+    </div>
+
+    <!-- Contas bancárias + Projeção -->
+    <div class="exec-grid-2">
+      <div class="exec-card">
+        <div class="exec-ch">
+          <span class="exec-ct">Movimentação por Conta Bancária</span>
+          <span class="exec-cb" id="exec-contas-badge" style="background:var(--o);color:#fff">–</span>
+        </div>
+        <div id="exec-contas-grid" class="exec-contas"></div>
+      </div>
+      <div class="exec-card">
+        <div class="exec-ch">
+          <span class="exec-ct">Projeção — Próximos 30 Dias</span>
+          <span class="exec-cb" id="exec-proj-badge" style="background:var(--bl);color:#fff">–</span>
+        </div>
+        <div id="exec-alerta-hero" style="padding:10px 13px;border-bottom:.5px solid var(--bd)"></div>
+        <div style="padding:5px 13px;background:#f8f8f8;border-bottom:.5px solid var(--bd);display:flex;justify-content:space-between">
+          <span style="font-size:9px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px">Aporte necessário</span>
+          <div id="exec-aporte-mini" style="display:flex;gap:12px;font-size:10px"></div>
+        </div>
+        <div id="exec-proj-list" style="max-height:220px;overflow-y:auto"></div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
 <!-- DRE -->
 <div id="pg-dre" class="pg" style="display:none">
 
@@ -733,12 +920,13 @@ function processarDados() {
 // ── NAV ───────────────────────────────────────────────────────────────────────
 function nav(pg) {
   CPG = pg
-  ;['dash','hist','diario','proj','desp','dre','imp','cfg'].forEach(p => document.getElementById('pg-'+p).style.display = p===pg?'block':'none')
-  document.querySelectorAll('.tab').forEach((el,i) => el.classList.toggle('active', ['dash','hist','diario','proj','desp','dre','imp','cfg'][i]===pg))
-  const hideBars = pg==='imp' || pg==='cfg'
+  ;['dash','hist','diario','proj','desp','dre','exec','imp','cfg'].forEach(p => document.getElementById('pg-'+p).style.display = p===pg?'block':'none')
+  document.querySelectorAll('.tab').forEach((el,i) => el.classList.toggle('active', ['dash','hist','diario','proj','desp','dre','exec','imp','cfg'][i]===pg))
+  const hideBars = pg==='imp' || pg==='cfg' || pg==='exec'
   document.getElementById('fbar').style.display = hideBars ? 'none' : 'flex'
   document.getElementById('afbar').style.display = hideBars ? 'none' : 'flex'
   if(pg==='cfg') renderCfg()
+  else if(pg==='exec') renderExec()
   else if(DATA.length) refresh()
 }
 
@@ -854,6 +1042,7 @@ function refresh() {
   else if(CPG==='proj') renderProj()
   else if(CPG==='desp') renderDesp()
   else if(CPG==='dre') renderDRE()
+  else if(CPG==='exec') renderExec()
 }
 
 // ── IMPORT + SALVAR NO SUPABASE ───────────────────────────────────────────────
@@ -1572,6 +1761,333 @@ function buildChartDesp() {
   kill('desp')
   CH.desp=new Chart(document.getElementById('c-desp').getContext('2d'),{type:'bar',data:{labels:meses.map(mk=>MNm(mk).toUpperCase()),datasets},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>c.dataset.label+': '+R(c.parsed.y)}}},scales:{x:{ticks:{font:{size:9}},grid:{display:false},stacked:true},y:{ticks:{font:{size:9},callback:v=>'R$'+(v/1000).toFixed(0)+'k'},grid:{color:'rgba(0,0,0,0.05)'},stacked:true}}}})
   document.getElementById('desp-lgd').innerHTML=cats.map((c,i)=>`<span><span class="ld" style="background:${CORES[i]}"></span>${c}</span>`).join('')
+}
+
+// ── VISÃO EXECUTIVA ──────────────────────────────────────────────────────────
+let EXEC_MES = 'all'
+
+function buildExecMesBtns() {
+  // Meses
+  const c = document.getElementById('exec-mbtns')
+  const btns = [{mk:'all',label:'Todos',cls:'dk'}, ...MONTHS.map(mk => {
+    const m = BM[mk], cls = m.real?'gr':m.parcial?'gr':'bl'
+    return { mk, label:MNm(mk).toUpperCase(), cls }
+  })]
+  c.innerHTML = btns.map(b=>`<button class="mfb ${b.cls}${b.mk===EXEC_MES?' active':''}" onclick="setExecMes('${b.mk}')">${b.label}</button>`).join('')
+
+  // Dropdowns dinâmicos — preserva seleção atual
+  const fillExec = (id, opts, placeholder) => {
+    const el = document.getElementById(id)
+    const cur = el?.value || ''
+    if(el) el.innerHTML = `<option value="">${placeholder}</option>` + opts.map(v=>`<option value="${v}"${v===cur?' selected':''}>${v}</option>`).join('')
+  }
+  fillExec('exec-banco', [...new Set(DATA.map(t=>t.banco).filter(Boolean))].sort(), 'Todas as contas')
+  fillExec('exec-cat',   [...new Set(DATA.map(t=>t.cat).filter(v=>v&&v!=='–'))].sort(), 'Todas')
+  fillExec('exec-cc',    [...new Set(DATA.map(t=>t.cc).filter(v=>v&&v!=='–'))].sort(), 'Todos')
+  fillExec('exec-nome',  [...new Set(DATA.map(t=>t.nome).filter(Boolean))].sort(), 'Todos')
+  const elG = document.getElementById('exec-grupo')
+  if(elG) {
+    const curG = elG.value
+    elG.innerHTML = '<option value="">Todos os grupos</option>' + DRE_GRUPOS.map(g=>`<option value="${g.id}"${g.id===curG?' selected':''}>${g.label}</option>`).join('')
+  }
+}
+
+function setExecMes(mk) { EXEC_MES=mk; buildExecMesBtns(); renderExec() }
+
+function getExecFilters() {
+  return {
+    banco: document.getElementById('exec-banco')?.value || '',
+    cat:   document.getElementById('exec-cat')?.value   || '',
+    cc:    document.getElementById('exec-cc')?.value    || '',
+    nome:  document.getElementById('exec-nome')?.value  || '',
+    grupo: document.getElementById('exec-grupo')?.value || '',
+    d1:    document.getElementById('exec-d1')?.value    || '',
+    d2:    document.getElementById('exec-d2')?.value    || '',
+  }
+}
+
+function clearExecFilters() {
+  ;['exec-banco','exec-cat','exec-cc','exec-nome','exec-grupo','exec-d1','exec-d2'].forEach(id => {
+    const el = document.getElementById(id); if(el) el.value = ''
+  })
+  renderExec()
+}
+
+function updateExecFilterUI(f) {
+  const cnt = Object.values(f).filter(v=>v!=='').length
+  const badge = document.getElementById('exec-active-badge')
+  const clearBtn = document.getElementById('exec-clear-btn')
+  const txt = document.getElementById('exec-active-txt')
+  badge.style.display = cnt>0?'inline-flex':'none'
+  clearBtn.style.display = cnt>0?'inline-block':'none'
+  if(txt) txt.textContent = cnt+(cnt===1?' filtro ativo':' filtros ativos')
+  ;['exec-banco','exec-cat','exec-cc','exec-nome','exec-grupo'].forEach(id=>{
+    const el=document.getElementById(id); if(el) el.classList.toggle('active',!!el.value)
+  })
+  ;['exec-d1','exec-d2'].forEach(id=>{
+    const el=document.getElementById(id); if(el) el.classList.toggle('active',!!el.value)
+  })
+}
+
+function renderExec() {
+  if(!DATA.length) return
+  buildExecMesBtns()
+
+  const f = getExecFilters()
+  updateExecFilterUI(f)
+
+  const meses = EXEC_MES==='all' ? MONTHS : [EXEC_MES]
+
+  // Filtra dados com todos os filtros exec
+  const applyExecFilters = txns => {
+    let t = txns
+    if(f.banco) t = t.filter(x=>x.banco===f.banco)
+    if(f.cat)   t = t.filter(x=>x.cat===f.cat)
+    if(f.cc)    t = t.filter(x=>x.cc===f.cc)
+    if(f.nome)  t = t.filter(x=>x.nome===f.nome)
+    if(f.grupo) t = t.filter(x=>{
+      if(x.valor>=0) return true
+      const g = DRE_GRUPOS.find(g=>g.id===f.grupo)
+      return g ? g.match(x.cat||'') : true
+    })
+    if(f.d1)    t = t.filter(x=>PK(x.date)>=f.d1)
+    if(f.d2)    t = t.filter(x=>PK(x.date)<=f.d2)
+    return t
+  }
+
+  const txnsAll = applyExecFilters(DATA)
+  const txnsPeriodo = meses.flatMap(mk => txnsAll.filter(t=>MK(t.date)===mk))
+
+  const periodoLbl = EXEC_MES==='all'
+    ? `${MNm(MONTHS[0]).toUpperCase()} – ${MNm(MONTHS[MONTHS.length-1]).toUpperCase()} · ${MONTHS[0].split('-')[0]}`
+    : MNm(EXEC_MES).toUpperCase()
+
+  // Totais período
+  const totRec  = txnsPeriodo.filter(isReceita).reduce((s,t)=>s+t.valor,0)
+  const totApo  = txnsPeriodo.filter(isAporte).reduce((s,t)=>s+t.valor,0)
+  const totSai  = txnsPeriodo.filter(t=>t.valor<0).reduce((s,t)=>s+t.valor,0)
+  const cashburn= totRec + totSai
+  const totDesp = Math.abs(totSai)
+
+  // DRE acumulado
+  const gruposAcc = {}
+  DRE_GRUPOS.forEach(g => gruposAcc[g.id] = 0)
+  txnsPeriodo.filter(t=>t.valor<0).forEach(t => {
+    if(/transfer/i.test(t.cat||'')||/transfer/i.test(t.desc||'')) return
+    const g = DRE_GRUPOS.find(g=>g.match(t.cat||''))
+    const id = g ? g.id : 'outras'
+    gruposAcc[id] = (gruposAcc[id]||0) + Math.abs(t.valor)
+  })
+  const totalDespDRE = Object.values(gruposAcc).reduce((s,v)=>s+v,0)
+  const recLiq  = totRec - (gruposAcc.impostos||0)
+  const lucBruto= recLiq - (gruposAcc.cogs||0)
+  const ebitda  = totRec - totalDespDRE
+  const resultado = totRec + totApo - totalDespDRE
+  const saldoAtual = calcSaldoAtual()
+
+  // ── Cabeçalho ─────────────────────────────────────────────────────────────
+  document.getElementById('exec-periodo-hdr').textContent = periodoLbl
+  document.getElementById('exec-atualizado').textContent = 'Atualizado em ' + new Date().toLocaleDateString('pt-BR',{day:'2-digit',month:'long',year:'numeric'})
+  const stBadge = document.getElementById('exec-status-hdr')
+  if(saldoAtual >= 100000) { stBadge.textContent='● Saudável'; stBadge.style.background='var(--g)'; stBadge.style.color='#fff' }
+  else if(saldoAtual >= 20000) { stBadge.textContent='▲ Atenção'; stBadge.style.background='var(--am)'; stBadge.style.color='#fff' }
+  else { stBadge.textContent='▼ Crítico'; stBadge.style.background='var(--r)'; stBadge.style.color='#fff' }
+
+  // ── KPIs ──────────────────────────────────────────────────────────────────
+  const margem = totRec>0?(ebitda/totRec*100).toFixed(1):0
+  const cobert = totDesp>0?(totRec/totDesp*100).toFixed(0):0
+  document.getElementById('exec-kpis').innerHTML = [
+    { lbl:'Saldo Total',       val:saldoAtual,  sub: saldoAtual>=100000?'● Saudável':'▼ Atenção', cor:'var(--o)', scor: saldoAtual>=100000?'pos':'warn' },
+    { lbl:'Receita Clientes',  val:totRec,       sub: txnsPeriodo.filter(isReceita).length+' operações', cor:'var(--g)', scor:'pos' },
+    { lbl:'Aportes',           val:totApo,       sub: txnsPeriodo.filter(isAporte).length+' aportes', cor:'var(--bl)', scor:'info' },
+    { lbl:'Total Despesas',    val:totDesp,      sub: 'no período', cor:'var(--r)', scor:'neg' },
+    { lbl:'EBITDA',            val:ebitda,       sub: 'Margem '+margem+'%', cor:ebitda>=0?'var(--g)':'var(--r)', scor:ebitda>=0?'pos':'neg' },
+    { lbl:'Cash Burn',         val:cashburn,     sub: 'Cobertura '+cobert+'%', cor:cashburn>=0?'var(--g)':'var(--r)', scor:cashburn>=0?'pos':'neg' },
+  ].map(k=>`<div class="exec-kcard" style="border-left-color:${k.cor}">
+    <div class="exec-klbl">${k.lbl}</div>
+    <div class="exec-kval ${k.scor}">${R(k.val)}</div>
+    <div class="exec-ksub ${k.scor}">${k.sub}</div>
+  </div>`).join('')
+
+  // ── Fluxo de Caixa ────────────────────────────────────────────────────────
+  document.getElementById('exec-fc-badge').textContent = periodoLbl
+  document.getElementById('exec-chart-badge').textContent = periodoLbl
+
+  let fcTotRec=0, fcTotApo=0, fcTotSai=0
+  const fcRows = meses.map(mk => {
+    const m = BM[mk]
+    const txMes = txnsAll.filter(t=>MK(t.date)===mk)
+    const rec = txMes.filter(isReceita).reduce((s,t)=>s+t.valor,0)
+    const apo = txMes.filter(isAporte).reduce((s,t)=>s+t.valor,0)
+    const sai = txMes.filter(t=>t.valor<0).reduce((s,t)=>s+t.valor,0)
+    const cb  = rec + sai
+    const res = rec + apo + sai
+    fcTotRec+=rec; fcTotApo+=apo; fcTotSai+=sai
+    const cor = m.real?'var(--g)':m.parcial?'var(--am)':'var(--bl)'
+    return `<tr>
+      <td><span style="font-weight:600">${MNm(mk).toUpperCase()}</span> <span style="font-size:8px;color:${cor}">${m.real?'✓':m.parcial?'~':'○'}</span></td>
+      <td>${R(m.saldoIni)}</td>
+      <td class="pos">${rec>0?R(rec):'–'}</td>
+      <td class="info">${apo>0?R(apo):'–'}</td>
+      <td class="neg">${sai<0?R(Math.abs(sai)):'–'}</td>
+      <td class="${cb>=0?'pos':'neg'}">${R(cb)}</td>
+      <td class="${res>=0?'pos':'neg'}">${R(res)}</td>
+      <td style="font-weight:600" class="${m.saldoFim>=0?'pos':'neg'}">${R(m.saldoFim)}</td>
+    </tr>`
+  })
+  document.getElementById('exec-fc-body').innerHTML = fcRows.join('')
+  const fcTotCB = fcTotRec+fcTotSai, fcTotRes = fcTotRec+fcTotApo+fcTotSai
+  const saldoFimTot = meses.length ? BM[meses[meses.length-1]].saldoFim : 0
+  const saldoIniTot = meses.length ? BM[meses[0]].saldoIni : 0
+  document.getElementById('exec-fc-foot').innerHTML = `<tr class="exec-tot">
+    <td>TOTAL</td><td>${R(saldoIniTot)}</td>
+    <td class="pos">${R(fcTotRec)}</td><td class="info">${R(fcTotApo)}</td>
+    <td class="neg">${R(Math.abs(fcTotSai))}</td>
+    <td class="${fcTotCB>=0?'pos':'neg'}">${R(fcTotCB)}</td>
+    <td class="${fcTotRes>=0?'pos':'neg'}">${R(fcTotRes)}</td>
+    <td class="${saldoFimTot>=0?'pos':'neg'}">${R(saldoFimTot)}</td>
+  </tr>`
+
+  // ── DRE Resumido ──────────────────────────────────────────────────────────
+  const dreStatus = resultado>=0?'Superávit':'Déficit'
+  document.getElementById('exec-dre-badge').textContent = dreStatus
+  document.getElementById('exec-dre-badge').style.background = resultado>=0?'var(--g)':'var(--r)'
+
+  const dreL = (lbl, val, opts={}) => {
+    const {bold,sep,result,indent,rec:showPct} = opts
+    if(sep) return `<div class="dre-linha dre-sep"><span>${lbl}</span></div>`
+    const cls = val>0?'pos':val<0?'neg':''
+    const pct = showPct && totRec>0 ? `<span class="dre-pct">${(val/totRec*100).toFixed(1)}%</span>` : ''
+    if(result) return `<div class="dre-linha dre-result"><span>${lbl}</span><div style="display:flex;gap:10px;align-items:center">${pct}<span class="${cls}">${R(val)}</span></div></div>`
+    return `<div class="dre-linha${bold?' dre-bold':''}">
+      <span class="dre-lbl${indent?' indent':''}${bold?' '+'':''}">${lbl}</span>
+      <div style="display:flex;gap:10px;align-items:center">${pct}<span class="${cls}">${R(val)}</span></div>
+    </div>`
+  }
+  document.getElementById('exec-dre-body').innerHTML = [
+    dreL('RECEITAS', null, {sep:true}),
+    dreL('Receita Bruta (Clientes)', totRec),
+    dreL('Aportes / Empréstimos', totApo),
+    dreL('Total Entradas', totRec+totApo, {bold:true}),
+    dreL('DEDUÇÕES', null, {sep:true}),
+    dreL('Impostos sobre Vendas', -(gruposAcc.impostos||0), {indent:true}),
+    dreL('Receita Líquida', recLiq, {bold:true, rec:true}),
+    dreL('CUSTO DOS SERVIÇOS', null, {sep:true}),
+    dreL('Custo do Serviço (COGS)', -(gruposAcc.cogs||0), {indent:true}),
+    dreL('Lucro Bruto', lucBruto, {bold:true, rec:true}),
+    dreL('DESPESAS OPERACIONAIS', null, {sep:true}),
+    dreL('Pessoal', -(gruposAcc.pessoal||0), {indent:true}),
+    dreL('P&D / Tecnologia', -(gruposAcc.pd||0), {indent:true}),
+    dreL('Comercial / Marketing', -(gruposAcc.comercial||0), {indent:true}),
+    dreL('G&A (Administrativo)', -(gruposAcc.ga||0), {indent:true}),
+    dreL('Financeiro', -(gruposAcc.financeiro||0), {indent:true}),
+    dreL('Outras', -(gruposAcc.outras||0), {indent:true}),
+    dreL('EBITDA', ebitda, {bold:true, rec:true}),
+    dreL('RESULTADO FINAL', resultado, {result:true, rec:true}),
+  ].join('')
+
+  // ── Gráfico ───────────────────────────────────────────────────────────────
+  kill('exec')
+  const gcMeses = meses
+  const gcLbs = gcMeses.map(mk=>MNm(mk).toUpperCase())
+  const gcRec = gcMeses.map(mk=>txnsAll.filter(t=>MK(t.date)===mk&&isReceita(t)).reduce((s,t)=>s+t.valor,0))
+  const gcApo = gcMeses.map(mk=>txnsAll.filter(t=>MK(t.date)===mk&&isAporte(t)).reduce((s,t)=>s+t.valor,0))
+  const gcDesp= gcMeses.map(mk=>Math.abs(txnsAll.filter(t=>MK(t.date)===mk&&t.valor<0).reduce((s,t)=>s+t.valor,0)))
+  const gcSal = gcMeses.map(mk=>BM[mk].saldoFim)
+  CH.exec = new Chart(document.getElementById('c-exec').getContext('2d'),{
+    data:{ labels:gcLbs, datasets:[
+      {type:'line', label:'Saldo', data:gcSal, borderColor:'#E87722', borderWidth:2.5, pointRadius:3, fill:false, tension:0.3, yAxisID:'y'},
+      {type:'bar',  label:'Receita', data:gcRec, backgroundColor:'rgba(22,163,74,.65)', stack:'s', yAxisID:'y2'},
+      {type:'bar',  label:'Aportes', data:gcApo, backgroundColor:'rgba(37,99,235,.55)', stack:'s', yAxisID:'y2'},
+      {type:'bar',  label:'Despesas',data:gcDesp,backgroundColor:'rgba(220,38,38,.6)',  stack:'s2',yAxisID:'y2'},
+    ]},
+    options:{ responsive:true, maintainAspectRatio:false,
+      plugins:{legend:{display:false}, tooltip:{callbacks:{label:c=>c.dataset.label+': '+R(c.parsed.y)}}},
+      scales:{
+        x:{ticks:{font:{size:9}},grid:{display:false}},
+        y:{position:'left', ticks:{font:{size:9},callback:v=>'R$'+(v/1000).toFixed(0)+'k'}, grid:{color:'rgba(0,0,0,0.05)'}},
+        y2:{position:'right',ticks:{font:{size:9},callback:v=>'R$'+(v/1000).toFixed(0)+'k'}, grid:{display:false}}
+      }
+    }
+  })
+
+  // ── Contas bancárias ──────────────────────────────────────────────────────
+  const bancosPresentes = [...new Set(DATA.map(t=>t.banco).filter(Boolean))].sort()
+  const BANCO_COLORS_MAP=[['Inter','#E87722'],['Banco do Brasil','#2563eb'],['BTG','#7c3aed'],['Caixa','#16a34a'],['Nubank','#8b5cf6']]
+  const corBanco = b => { for(const[k,c] of BANCO_COLORS_MAP) if(b.toLowerCase().includes(k.toLowerCase())) return c; return '#666' }
+  const ncols = Math.min(4, bancosPresentes.length)
+  const grid = document.getElementById('exec-contas-grid')
+  grid.style.gridTemplateColumns = `repeat(${ncols},1fr)`
+  grid.innerHTML = bancosPresentes.map(b => {
+    const txB = txnsPeriodo.filter(t=>t.banco===b)
+    const ent = txB.filter(t=>t.valor>0).reduce((s,t)=>s+t.valor,0)
+    const sai = txB.filter(t=>t.valor<0).reduce((s,t)=>s+t.valor,0)
+    const saldo = calcSaldoBanco(b)
+    const cor = corBanco(b)
+    return `<div class="exec-conta-card" style="border-left:3px solid ${cor}">
+      <div class="exec-conta-nome" style="color:${cor}" title="${b}">${b}</div>
+      ${saldo!==null?`<div style="font-size:13px;font-weight:700;color:${saldo>=0?'var(--text)':'var(--r)'};margin-bottom:2px">${R(saldo)}</div>`:''}
+      <div style="font-size:9px;color:var(--muted);margin-bottom:2px">${txB.length} lançamentos no período</div>
+      <div style="display:flex;gap:8px;font-size:9px">
+        ${ent>0?`<span class="pos">↑ ${R(ent)}</span>`:''}
+        ${sai<0?`<span class="neg">↓ ${R(Math.abs(sai))}</span>`:''}
+      </div>
+    </div>`
+  }).join('')
+  document.getElementById('exec-contas-badge').textContent = `${bancosPresentes.length} contas`
+
+  // ── Projeção / Alerta ─────────────────────────────────────────────────────
+  const today = new Date(); today.setHours(0,0,0,0)
+  let futuros = DATA.filter(t=>isPend(t)&&new Date(t.date)>=today)
+  if(f.banco) futuros = futuros.filter(t=>t.banco===f.banco)
+  futuros.sort((a,b)=>a.date-b.date)
+  const saldoBase = calcSaldoAtual()
+  const byDay = {}
+  futuros.forEach(t=>{const k=PK(t.date);if(!byDay[k])byDay[k]=[];byDay[k].push(t)})
+  const saldoEmDias = n => {
+    const alvo=new Date(today); alvo.setDate(today.getDate()+n)
+    return saldoBase + futuros.filter(t=>new Date(t.date)<=alvo).reduce((s,t)=>s+t.valor,0)
+  }
+  const s5=saldoEmDias(5), s10=saldoEmDias(10), s15=saldoEmDias(15)
+  const a5=Math.max(0,-s5), a10=Math.max(0,-s10), a15=Math.max(0,-s15)
+
+  // Hero
+  let primNeg=null; let bProj=saldoBase
+  for(const dk of [...new Set(futuros.map(t=>PK(t.date)))].sort()){
+    bProj+=(byDay[dk]||[]).reduce((s,t)=>s+t.valor,0)
+    if(bProj<0&&!primNeg) primNeg=dk
+  }
+  const heroEl = document.getElementById('exec-alerta-hero')
+  if(!primNeg) {
+    heroEl.innerHTML=`<div style="display:flex;align-items:center;gap:8px"><span style="font-size:16px">✅</span><div><div style="font-size:11px;font-weight:700;color:var(--g)">Caixa saudável — nenhum saldo negativo previsto</div><div style="font-size:10px;color:var(--muted)">Saldo base: ${R(saldoBase)} · ${futuros.length} lançamentos futuros</div></div></div>`
+  } else {
+    const dias=Math.round((new Date(primNeg)-today)/864e5)
+    heroEl.innerHTML=`<div style="display:flex;align-items:center;gap:8px"><span style="font-size:16px">${dias<=5?'🚨':'⚠️'}</span><div><div style="font-size:11px;font-weight:700;color:${dias<=5?'var(--r)':'var(--am)'}">Saldo negativo em ${dias} dias — ${new Date(primNeg).toLocaleDateString('pt-BR',{day:'2-digit',month:'short'})}</div><div style="font-size:10px;color:var(--muted)">Saldo base: ${R(saldoBase)}</div></div></div>`
+  }
+  document.getElementById('exec-aporte-mini').innerHTML = [
+    {d:5,s:s5,a:a5},{d:10,s:s10,a:a10},{d:15,s:s15,a:a15}
+  ].map(x=>`<span style="color:${x.a>0?'var(--r)':x.s<20000?'var(--am)':'var(--g)'}"><strong>${x.d}d:</strong> ${x.a>0?R(x.a):'OK'}</span>`).join('')
+
+  // Lista projeção
+  document.getElementById('exec-proj-badge').textContent = futuros.length + ' previstos'
+  const fim30=new Date(today); fim30.setDate(today.getDate()+30)
+  const prox=futuros.filter(t=>new Date(t.date)<=fim30)
+  let bTl=saldoBase
+  const days30=[...new Set(prox.map(t=>PK(t.date)))].sort()
+  document.getElementById('exec-proj-list').innerHTML = days30.map(dk=>{
+    const txns=byDay[dk]||[], liq=txns.reduce((s,t)=>s+t.valor,0)
+    bTl+=liq
+    const dot=bTl<0?'var(--r)':bTl<50000?'var(--am)':'var(--g)'
+    const fmt=new Date(dk).toLocaleDateString('pt-BR',{weekday:'short',day:'2-digit',month:'2-digit'})
+    const nomes=txns.map(t=>(t.nome||t.desc||'–').substring(0,20)).join(' · ')
+    return `<div class="exec-proj-row">
+      <div class="exec-proj-dot" style="background:${dot}"></div>
+      <div class="exec-proj-date">${fmt}</div>
+      <div class="exec-proj-desc">${nomes}</div>
+      <div class="exec-proj-val ${liq>=0?'pos':'neg'}">${R(liq)}</div>
+      <div class="exec-proj-sal ${bTl<0?'neg':bTl<50000?'warn':''}">${R(bTl)}</div>
+    </div>`
+  }).join('') || '<div style="padding:10px 13px;font-size:10px;color:var(--muted)">Nenhum lançamento nos próximos 30 dias.</div>'
 }
 
 // ── DRE ──────────────────────────────────────────────────────────────────────
