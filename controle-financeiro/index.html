@@ -445,6 +445,15 @@ thead th{vertical-align:top}
           <option value="NAVE ANP">NAVE ANP</option>
         </select>
       </div>
+      <div style="display:flex;align-items:center;gap:6px">
+        <span class="lbl">De</span>
+        <select id="cx-de" onchange="renderCaixa()" style="background:var(--bg2);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:13px;padding:5px 10px;outline:none"></select>
+      </div>
+      <div style="display:flex;align-items:center;gap:6px">
+        <span class="lbl">Até</span>
+        <select id="cx-ate" onchange="renderCaixa()" style="background:var(--bg2);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:13px;padding:5px 10px;outline:none"></select>
+      </div>
+      <button onclick="resetCxPeriodo()" style="background:transparent;border:1px solid var(--border);border-radius:6px;color:var(--muted);font-size:11px;padding:5px 10px;cursor:pointer;font-family:'IBM Plex Mono',monospace">✕ Limpar período</button>
     </div>
 
     <!-- KPI CAIXA -->
@@ -1518,7 +1527,7 @@ function switchTab(tab){
   document.getElementById('painel-caixa').style.display      = tab==='caixa'?'block':'none';
   document.querySelectorAll('.dash-tab').forEach(b=>b.classList.remove('active'));
   document.getElementById('tab-'+tab).classList.add('active');
-  if(tab==='caixa') renderCaixa();
+  if(tab==='caixa'){ populateCxPeriodo(); renderCaixa(); }
 }
 
 // -- CAIXA LOGIC --------------------------------------------------------------
@@ -1551,10 +1560,53 @@ function getBudgetRestante(projFilter){
 let cxCharts = {};
 function dkCx(id){ if(cxCharts[id]){cxCharts[id].destroy();delete cxCharts[id];} }
 
+function populateCxPeriodo(){
+  // Build all months from extrato
+  const mesMap={};
+  extratoRows.forEach(r=>{ if(r.mes){const k=mesLbl(r.mes);if(!mesMap[k])mesMap[k]=r.mes;} });
+  const meses=Object.entries(mesMap).sort((a,b)=>a[1]-b[1]).map(x=>x[0]);
+  const now=new Date();
+  const curLbl=mesLbl(now);
+  ['cx-de','cx-ate'].forEach(id=>{
+    const sel=document.getElementById(id);
+    if(!sel||sel.options.length>1) return; // already populated
+    sel.innerHTML='<option value="">Todos</option>';
+    meses.forEach(m=>{const o=document.createElement('option');o.value=m;o.textContent=m;sel.appendChild(o);});
+  });
+  // Default: De = first month, Ate = current month
+  const selDe=document.getElementById('cx-de');
+  const selAte=document.getElementById('cx-ate');
+  if(selDe&&selDe.value===''&&meses.length) selDe.value=meses[0];
+  if(selAte&&selAte.value===''){
+    selAte.value=meses.includes(curLbl)?curLbl:meses[meses.length-1];
+  }
+}
+
+function resetCxPeriodo(){
+  document.getElementById('cx-de').value='';
+  document.getElementById('cx-ate').value='';
+  renderCaixa();
+}
+
+function cxInPeriodo(r){
+  const de=document.getElementById('cx-de')?.value;
+  const ate=document.getElementById('cx-ate')?.value;
+  if(!de&&!ate) return true;
+  if(!r.mes) return false;
+  const mesMap={};
+  extratoRows.forEach(x=>{if(x.mes){const k=mesLbl(x.mes);if(!mesMap[k])mesMap[k]=x.mes;}});
+  const dDe=de&&mesMap[de]?mesMap[de]:null;
+  const dAte=ate&&mesMap[ate]?new Date(mesMap[ate].getFullYear(),mesMap[ate].getMonth()+1,0):null;
+  if(dDe&&r.mes<dDe) return false;
+  if(dAte&&r.mes>dAte) return false;
+  return true;
+}
+
 function renderCaixa(){
+  populateCxPeriodo();
   const proj = document.getElementById('cx-proj').value;
-  const rec  = getReceitas(proj);
-  const desp = getDespesas(proj);
+  const rec  = getReceitas(proj).filter(cxInPeriodo);
+  const desp = getDespesas(proj).filter(cxInPeriodo);
 
   const totalRec   = rec.reduce((s,r)=>s+r.valor,0);
   const totalDesp  = Math.abs(desp.reduce((s,r)=>s+r.valor,0));
@@ -1644,7 +1696,7 @@ function renderCaixa(){
   }).join('');
 
   // Tabela entradas detalhada
-  const recFilt=proj==='all'?getReceitas('all'):rec;
+  const recFilt=(proj==='all'?getReceitas('all'):rec).filter(cxInPeriodo);
   document.getElementById('cx-tbody-rec').innerHTML=recFilt
     .sort((a,b)=>(b.mes||0)-(a.mes||0))
     .map(r=>{
