@@ -15,7 +15,7 @@ export async function POST(req: Request) {
       await supabase.from('cf_budget_rows').delete().neq('id', 0)
       if (rows?.length) {
         const toInsert = rows.map((r: any) => ({
-          proj: r.proj, mes: r.mes instanceof Date ? r.mes.toISOString().slice(0,10) : r.mes,
+          proj: r.proj, mes: r.mes ? String(r.mes).slice(0,10) : null,
           tipo: r.tipo, item: r.item, sub: r.sub, valor: r.valor
         }))
         for (let i = 0; i < toInsert.length; i += 500) {
@@ -41,7 +41,7 @@ export async function POST(req: Request) {
       if (rows?.length) {
         const toInsert = rows.map((r: any) => ({
           data: r.data, proj: r.proj,
-          mes: r.mes instanceof Date ? r.mes.toISOString().slice(0,10) : r.mes,
+          mes: r.mes ? String(r.mes).slice(0,10) : null,
           obs: r.obs, valor: r.valor, fornecedor: r.fornecedor,
           conta: r.conta, situacao: r.situacao, descricao: r.descricao,
           origem: r._origem || r.origem || '',
@@ -56,6 +56,7 @@ export async function POST(req: Request) {
 
     return NextResponse.json({ ok: true, count: rows?.length || 0 })
   } catch (e: any) {
-    return NextResponse.json({ ok: false, error: e.message }, { status: 500 })
+    console.error('Import error:', e)
+    return NextResponse.json({ ok: false, error: e.message, stack: e.stack }, { status: 500 })
   }
 }
