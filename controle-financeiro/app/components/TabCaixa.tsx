@@ -182,8 +182,8 @@ export default function TabCaixa({ budgetRows, extratoRows, allMes }: Props) {
             <BarChart data={chartData} margin={{ top: 0, right: 0, left: 0, bottom: 0 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,.04)" />
               <XAxis dataKey="mes" tick={{ fontSize: 9, fontFamily: 'IBM Plex Mono', fill: '#555' }} />
-              <YAxis tick={{ fontSize: 9, fontFamily: 'IBM Plex Mono', fill: '#555' }} tickFormatter={fmtM} />
-              <Tooltip contentStyle={ttStyle} formatter={(v: number) => fmtF(v)} />
+              <YAxis tick={{ fontSize: 9, fontFamily: 'IBM Plex Mono', fill: '#555' }} tickFormatter={(v: number) => fmtM(v)} />
+              <Tooltip contentStyle={ttStyle} formatter={(v) => fmtF(Number(v))} />
               <Legend wrapperStyle={{ fontSize: 11, fontFamily: 'IBM Plex Mono', color: '#888' }} />
               <Bar dataKey="entradas" name="Entradas" fill="rgba(46,204,113,.7)" radius={[3, 3, 0, 0]} />
               <Bar dataKey="saidas" name="Saídas" fill="rgba(231,76,60,.6)" radius={[3, 3, 0, 0]} />
@@ -196,8 +196,8 @@ export default function TabCaixa({ budgetRows, extratoRows, allMes }: Props) {
             <LineChart data={chartData} margin={{ top: 0, right: 0, left: 0, bottom: 0 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,.04)" />
               <XAxis dataKey="mes" tick={{ fontSize: 9, fontFamily: 'IBM Plex Mono', fill: '#555' }} />
-              <YAxis tick={{ fontSize: 9, fontFamily: 'IBM Plex Mono', fill: '#555' }} tickFormatter={fmtM} />
-              <Tooltip contentStyle={ttStyle} formatter={(v: number) => fmtF(v)} />
+              <YAxis tick={{ fontSize: 9, fontFamily: 'IBM Plex Mono', fill: '#555' }} tickFormatter={(v: number) => fmtM(v)} />
+              <Tooltip contentStyle={ttStyle} formatter={(v) => fmtF(Number(v))} />
               <Line type="monotone" dataKey="saldoAcc" name="Saldo Acumulado" stroke="#3498DB" fill="rgba(52,152,219,.08)" dot={{ r: 3, fill: '#3498DB' }} />
             </LineChart>
           </ResponsiveContainer>

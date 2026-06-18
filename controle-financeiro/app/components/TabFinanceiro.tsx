@@ -151,8 +151,13 @@ export default function TabFinanceiro({ budgetRows, extratoRows, allMes, allAnos
       return (r.fornecedor + r.obs + r.sub + r.item + r.descricao).toLowerCase().includes(search.toLowerCase())
     })
     rows = [...rows].sort((a, b) => {
-      const av: string | number = sortCol === 'valor' ? a.valor : sortCol === 'data' ? (a.mes || '') : ((a as Record<string, unknown>)[sortCol] as string) || ''
-      const bv: string | number = sortCol === 'valor' ? b.valor : sortCol === 'data' ? (b.mes || '') : ((b as Record<string, unknown>)[sortCol] as string) || ''
+      const getVal = (r: ExtratoRow): string | number => {
+        if (sortCol === 'valor') return r.valor
+        if (sortCol === 'data') return r.mes || ''
+        const v = (r as unknown as Record<string, unknown>)[sortCol]
+        return typeof v === 'string' || typeof v === 'number' ? v : ''
+      }
+      const av = getVal(a), bv = getVal(b)
       const c = av < bv ? -1 : av > bv ? 1 : 0
       return sortDir === 'asc' ? c : -c
     })
@@ -239,8 +244,8 @@ export default function TabFinanceiro({ budgetRows, extratoRows, allMes, allAnos
             <BarChart data={catData} margin={{ top: 0, right: 0, left: 0, bottom: 0 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,.04)" />
               <XAxis dataKey="cat" tick={{ fontSize: 9, fontFamily: 'IBM Plex Mono', fill: '#555' }} />
-              <YAxis tick={{ fontSize: 9, fontFamily: 'IBM Plex Mono', fill: '#555' }} tickFormatter={fmtM} />
-              <Tooltip contentStyle={ttStyle} formatter={(v: number) => fmtF(v)} />
+              <YAxis tick={{ fontSize: 9, fontFamily: 'IBM Plex Mono', fill: '#555' }} tickFormatter={(v: number) => fmtM(v)} />
+              <Tooltip contentStyle={ttStyle} formatter={(v) => fmtF(Number(v))} />
               <Legend wrapperStyle={{ fontSize: 11, fontFamily: 'IBM Plex Mono', color: '#888' }} />
               <Bar dataKey="budget" name="Budget" fill="rgba(255,255,255,.1)" radius={[2, 2, 0, 0]} />
               <Bar dataKey="realizado" name="Realizado" fill="rgba(255,107,0,.75)" radius={[2, 2, 0, 0]} />
@@ -253,8 +258,8 @@ export default function TabFinanceiro({ budgetRows, extratoRows, allMes, allAnos
             <LineChart data={mesData} margin={{ top: 0, right: 0, left: 0, bottom: 0 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,.04)" />
               <XAxis dataKey="mes" tick={{ fontSize: 9, fontFamily: 'IBM Plex Mono', fill: '#555' }} />
-              <YAxis tick={{ fontSize: 9, fontFamily: 'IBM Plex Mono', fill: '#555' }} tickFormatter={fmtM} />
-              <Tooltip contentStyle={ttStyle} formatter={(v: number) => fmtF(v)} />
+              <YAxis tick={{ fontSize: 9, fontFamily: 'IBM Plex Mono', fill: '#555' }} tickFormatter={(v: number) => fmtM(v)} />
+              <Tooltip contentStyle={ttStyle} formatter={(v) => fmtF(Number(v))} />
               <Legend wrapperStyle={{ fontSize: 11, fontFamily: 'IBM Plex Mono', color: '#888' }} />
               <Line type="monotone" dataKey="budget" name="Budget" stroke="rgba(255,255,255,.3)" strokeDasharray="4 3" dot={{ r: 2 }} />
               <Line type="monotone" dataKey="realizado" name="Realizado" stroke="var(--orange)" dot={{ r: 3, fill: 'var(--orange)' }} />
