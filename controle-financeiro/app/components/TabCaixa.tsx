@@ -16,6 +16,13 @@ interface Props {
   allMes: string[]
 }
 
+type TableRowDef = {
+  lbl: string
+  fn: (p: string) => number | null
+  bold?: boolean
+  pct?: boolean
+}
+
 export default function TabCaixa({ budgetRows, extratoRows, allMes }: Props) {
   const [proj, setProj] = useState('all')
   const [de, setDe] = useState('')
@@ -55,10 +62,28 @@ export default function TabCaixa({ budgetRows, extratoRows, allMes }: Props) {
     inPeriodo(r)
   ), [extratoRows, proj, de, ate])
 
-  function getBudRest(p: string) {
+  function getBudRest(p: string): number {
     const bud = budgetRows.filter(r => p === 'all' || r.proj === p)
     const ext = extratoRows.filter(r => (p === 'all' || r.proj === p) && r.valor < 0)
     return Math.abs(bud.reduce((s, r) => s + r.valor, 0)) - Math.abs(ext.reduce((s, r) => s + r.valor, 0))
+  }
+
+  function getRecAll(p: string): number {
+    return extratoRows.filter(r => r.valor > 0 && r.origem !== 'Transferência' && !RESGATE_APLICA.test(r.descricao || '') && (p === 'all' || r.proj === p)).reduce((s, r) => s + r.valor, 0)
+  }
+
+  function getDepAll(p: string): number {
+    return Math.abs(extratoRows.filter(r => r.valor < 0 && (p === 'all' || r.proj === p)).reduce((s, r) => s + r.valor, 0))
+  }
+
+  function getSaldo(p: string): number {
+    return getRecAll(p) - getDepAll(p)
+  }
+
+  function getCob(p: string): number | null {
+    const s = getSaldo(p)
+    const b = getBudRest(p)
+    return b > 0 ? s / b * 100 : null
   }
 
   const totalRec = receitas.reduce((s, r) => s + r.valor, 0)
@@ -82,29 +107,26 @@ export default function TabCaixa({ budgetRows, extratoRows, allMes }: Props) {
 
   const ttStyle = { backgroundColor: 'var(--bg3)', border: '1px solid var(--border)', color: 'var(--text)', fontSize: 11 }
 
-  const projList = ['Finep', 'NAVE ANP'] as const
-  const tableRows = [
-    { lbl: 'Receita Total', fn: (p: string) => extratoRows.filter(r => r.valor > 0 && r.origem !== 'Transferência' && !RESGATE_APLICA.test(r.descricao || '') && (p === 'all' || r.proj === p)).reduce((s, r) => s + r.valor, 0) },
-    { lbl: 'Despesa Realizada', fn: (p: string) => Math.abs(extratoRows.filter(r => r.valor < 0 && (p === 'all' || r.proj === p)).reduce((s, r) => s + r.valor, 0)) },
-    { lbl: 'Saldo em Caixa', fn: (p: string) => { const rec = extratoRows.filter(r => r.valor > 0 && r.origem !== 'Transferência' && !RESGATE_APLICA.test(r.descricao || '') && (p === 'all' || r.proj === p)).reduce((s, r) => s + r.valor, 0); const dep = extratoRows.filter(r => r.valor < 0 && (p === 'all' || r.proj === p)).reduce((s, r) => s + r.valor, 0); return rec + dep }, bold: true },
-    { lbl: 'Budget Restante', fn: getBudRest },
-    { lbl: 'Cobertura %', fn: (p: string) => { const s2 = tableRows[2].fn(p); const b = getBudRest(p); return b > 0 ? s2 / b * 100 : null }, pct: true, bold: true },
+  const tableRows: TableRowDef[] = [
+    { lbl: 'Receita Total',     fn: (p) => getRecAll(p) },
+    { lbl: 'Despesa Realizada', fn: (p) => getDepAll(p) },
+    { lbl: 'Saldo em Caixa',   fn: (p) => getSaldo(p), bold: true },
+    { lbl: 'Budget Restante',  fn: (p) => getBudRest(p) },
+    { lbl: 'Cobertura %',      fn: (p) => getCob(p), pct: true, bold: true },
   ]
 
   return (
     <div>
       {/* Filters */}
       <div className="flex flex-wrap gap-3 mb-5 items-center">
-        {[
-          { lbl: 'Projeto', id: 'proj', val: proj, set: setProj, opts: [['all', 'Todos'], ['Finep', 'FINEP'], ['NAVE ANP', 'NAVE ANP']] },
-        ].map(f => (
-          <div key={f.id} className="flex items-center gap-2">
-            <span className="text-[11px] mono uppercase tracking-wider" style={{ color: 'var(--muted)' }}>{f.lbl}</span>
-            <select value={f.val} onChange={e => f.set(e.target.value)} className="cf-select">
-              {(f.opts as [string, string][]).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
-            </select>
-          </div>
-        ))}
+        <div className="flex items-center gap-2">
+          <span className="text-[11px] mono uppercase tracking-wider" style={{ color: 'var(--muted)' }}>Projeto</span>
+          <select value={proj} onChange={e => setProj(e.target.value)} className="cf-select">
+            <option value="all">Todos</option>
+            <option value="Finep">FINEP</option>
+            <option value="NAVE ANP">NAVE ANP</option>
+          </select>
+        </div>
         <div className="flex items-center gap-2">
           <span className="text-[11px] mono uppercase tracking-wider" style={{ color: 'var(--muted)' }}>De</span>
           <select value={de} onChange={e => setDe(e.target.value)} className="cf-select">
@@ -161,7 +183,7 @@ export default function TabCaixa({ budgetRows, extratoRows, allMes }: Props) {
               <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,.04)" />
               <XAxis dataKey="mes" tick={{ fontSize: 9, fontFamily: 'IBM Plex Mono', fill: '#555' }} />
               <YAxis tick={{ fontSize: 9, fontFamily: 'IBM Plex Mono', fill: '#555' }} tickFormatter={fmtM} />
-              <Tooltip contentStyle={ttStyle} formatter={(v: any) => fmtF(v)} />
+              <Tooltip contentStyle={ttStyle} formatter={(v: number) => fmtF(v)} />
               <Legend wrapperStyle={{ fontSize: 11, fontFamily: 'IBM Plex Mono', color: '#888' }} />
               <Bar dataKey="entradas" name="Entradas" fill="rgba(46,204,113,.7)" radius={[3, 3, 0, 0]} />
               <Bar dataKey="saidas" name="Saídas" fill="rgba(231,76,60,.6)" radius={[3, 3, 0, 0]} />
@@ -175,7 +197,7 @@ export default function TabCaixa({ budgetRows, extratoRows, allMes }: Props) {
               <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,.04)" />
               <XAxis dataKey="mes" tick={{ fontSize: 9, fontFamily: 'IBM Plex Mono', fill: '#555' }} />
               <YAxis tick={{ fontSize: 9, fontFamily: 'IBM Plex Mono', fill: '#555' }} tickFormatter={fmtM} />
-              <Tooltip contentStyle={ttStyle} formatter={(v: any) => fmtF(v)} />
+              <Tooltip contentStyle={ttStyle} formatter={(v: number) => fmtF(v)} />
               <Line type="monotone" dataKey="saldoAcc" name="Saldo Acumulado" stroke="#3498DB" fill="rgba(52,152,219,.08)" dot={{ r: 3, fill: '#3498DB' }} />
             </LineChart>
           </ResponsiveContainer>
@@ -194,17 +216,16 @@ export default function TabCaixa({ budgetRows, extratoRows, allMes }: Props) {
           </tr></thead>
           <tbody>
             {tableRows.map(row => {
-              const vF = row.fn('Finep'), vN = row.fn('NAVE ANP')
-              const vT = row.pct
-                ? (() => { const s2 = tableRows[2].fn('all'); const b = getBudRest('all'); return b > 0 ? s2 / b * 100 : null })()
-                : (typeof vF === 'number' && typeof vN === 'number' ? vF + vN : null)
+              const vF = row.fn('Finep')
+              const vN = row.fn('NAVE ANP')
+              const vT = row.pct ? getCob('all') : (typeof vF === 'number' && typeof vN === 'number' ? vF + vN : null)
               const fmt = (v: number | null) => v === null ? '—' : row.pct ? v.toFixed(1) + '%' : fmtF(v)
               return (
                 <tr key={row.lbl} style={row.bold ? { fontWeight: 600, borderTop: '1px solid var(--border)' } : {}}>
                   <td className="cf-td" style={{ color: 'var(--muted)', fontSize: 12 }}>{row.lbl}</td>
-                  <td className="cf-td text-right mono">{fmt(vF as number | null)}</td>
-                  <td className="cf-td text-right mono">{fmt(vN as number | null)}</td>
-                  <td className="cf-td text-right mono">{fmt(vT as number | null)}</td>
+                  <td className="cf-td text-right mono">{fmt(vF)}</td>
+                  <td className="cf-td text-right mono">{fmt(vN)}</td>
+                  <td className="cf-td text-right mono">{fmt(vT)}</td>
                 </tr>
               )
             })}

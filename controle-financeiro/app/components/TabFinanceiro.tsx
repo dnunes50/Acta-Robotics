@@ -18,6 +18,11 @@ interface Props {
   setFilters: (f: DashFilters) => void
 }
 
+interface BudTableRow {
+  proj: string; tipo: string; item: string; sub: string
+  bt: number; bp: number; real: number; realAcc: number
+}
+
 export default function TabFinanceiro({ budgetRows, extratoRows, allMes, allAnos, filters, setFilters }: Props) {
   const [sortCol, setSortCol] = useState('data')
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc')
@@ -28,7 +33,6 @@ export default function TabFinanceiro({ budgetRows, extratoRows, allMes, allAnos
   const [budDe, setBudDe] = useState('')
   const [budAte, setBudAte] = useState('')
   const PAGE_SIZE = 50
-
   const f = filters
 
   const mesDateMap = useMemo(() => {
@@ -70,39 +74,49 @@ export default function TabFinanceiro({ budgetRows, extratoRows, allMes, allAnos
     })
   }
 
-  function inPer(r: BudgetRow | ExtratoRow, de: string, ate: string) {
+  function inPer(r: BudgetRow | ExtratoRow, de: string, ate: string): boolean {
     if (!de && !ate) return true
     if (!r.mes) return false
     const d = new Date(r.mes + 'T00:00:00')
     if (de && mesDateMap[de] && d < mesDateMap[de]) return false
-    if (ate && mesDateMap[ate]) { const end = new Date(mesDateMap[ate].getFullYear(), mesDateMap[ate].getMonth() + 1, 0); if (d > end) return false }
+    if (ate && mesDateMap[ate]) {
+      const end = new Date(mesDateMap[ate].getFullYear(), mesDateMap[ate].getMonth() + 1, 0)
+      if (d > end) return false
+    }
     return true
   }
 
-  const bud = fBud(), ext = fExt()
-  const budAll = budgetRows.filter(r => (f.proj === 'all' || r.proj === f.proj) && (f.tipo === 'all' || r.tipo === f.tipo) && (f.item === 'all' || r.item === f.item) && (f.sub === 'all' || r.sub === f.sub))
-  const extAll = extratoRows.filter(r => r.valor < 0 && (f.proj === 'all' || r.proj === f.proj) && (f.tipo === 'all' || r.tipo === f.tipo) && (f.item === 'all' || r.item === f.item) && (f.sub === 'all' || r.sub === f.sub))
+  const bud = fBud()
+  const ext = fExt()
+  const budAll = budgetRows.filter(r =>
+    (f.proj === 'all' || r.proj === f.proj) &&
+    (f.tipo === 'all' || r.tipo === f.tipo) &&
+    (f.item === 'all' || r.item === f.item) &&
+    (f.sub === 'all' || r.sub === f.sub)
+  )
+  const extAll = extratoRows.filter(r =>
+    r.valor < 0 &&
+    (f.proj === 'all' || r.proj === f.proj) &&
+    (f.tipo === 'all' || r.tipo === f.tipo) &&
+    (f.item === 'all' || r.item === f.item) &&
+    (f.sub === 'all' || r.sub === f.sub)
+  )
 
   const budTot = budAll.reduce((s, r) => s + r.valor, 0)
   const realTot = extAll.reduce((s, r) => s + r.valor, 0)
   const budPer = bud.reduce((s, r) => s + r.valor, 0)
   const realPer = ext.reduce((s, r) => s + r.valor, 0)
   const saldoTot = budTot - realTot
-  const saldoPer = budPer - realPer
   const pctTot = budTot !== 0 ? (realTot / budTot * 100) : 0
   const pctPer = budPer !== 0 ? (realPer / budPer * 100) : 0
 
-  // Periodo KPIs
-  const inPeriodoRows = (arr: BudgetRow[]) => arr.filter(r => inPer(r, pDe, pAte))
-  const inPeriodoExt  = (arr: ExtratoRow[]) => arr.filter(r => inPer(r, pDe, pAte))
-  const budPerR = inPeriodoRows(budAll).reduce((s, r) => s + r.valor, 0)
-  const realPerR = inPeriodoExt(extAll).reduce((s, r) => s + r.valor, 0)
+  const budPerR = budAll.filter(r => inPer(r, pDe, pAte)).reduce((s, r) => s + r.valor, 0)
+  const realPerR = extAll.filter(r => inPer(r, pDe, pAte)).reduce((s, r) => s + r.valor, 0)
   const saldoPerR = budPerR - realPerR
   const pctPerR = budPerR !== 0 ? (realPerR / budPerR * 100) : 0
 
   const ttStyle = { backgroundColor: 'var(--bg3)', border: '1px solid var(--border)', color: 'var(--text)', fontSize: 11 }
 
-  // Chart data
   const catData = useMemo(() => {
     const cats = [...new Set([...bud.map(r => r.item), ...ext.map(r => r.item)].filter(Boolean))]
     const gB: Record<string, number> = {}; bud.forEach(r => { gB[r.item] = (gB[r.item] || 0) + r.valor })
@@ -116,27 +130,29 @@ export default function TabFinanceiro({ budgetRows, extratoRows, allMes, allAnos
     return allMes.map(m => ({ mes: m, budget: Math.abs(gB[m] || 0), realizado: Math.abs(gE[m] || 0) }))
   }, [bud, ext, allMes])
 
-  // Budget table
-  const budTableData = useMemo(() => {
+  const budTableData = useMemo<BudTableRow[]>(() => {
     const budPerFilter = budAll.filter(r => inPer(r, budDe, budAte))
     const extPerFilter = extAll.filter(r => inPer(r, budDe, budAte))
-    const map: Record<string, any> = {}
-    budAll.forEach(r => { const k = `${r.proj}||${r.tipo}||${r.item}||${r.sub}`; if (!map[k]) map[k] = { proj: r.proj, tipo: r.tipo, item: r.item, sub: r.sub, bt: 0, bp: 0, real: 0, realAcc: 0 }; map[k].bt += r.valor })
-    budPerFilter.forEach(r => { const k = `${r.proj}||${r.tipo}||${r.item}||${r.sub}`; if (!map[k]) map[k] = { proj: r.proj, tipo: r.tipo, item: r.item, sub: r.sub, bt: 0, bp: 0, real: 0, realAcc: 0 }; map[k].bp += r.valor })
-    extPerFilter.forEach(r => { const k = `${r.proj}||${r.tipo}||${r.item}||${r.sub}`; if (!map[k]) map[k] = { proj: r.proj, tipo: r.tipo, item: r.item, sub: r.sub, bt: 0, bp: 0, real: 0, realAcc: 0 }; map[k].real += r.valor })
-    extAll.forEach(r => { const k = `${r.proj}||${r.tipo}||${r.item}||${r.sub}`; if (!map[k]) map[k] = { proj: r.proj, tipo: r.tipo, item: r.item, sub: r.sub, bt: 0, bp: 0, real: 0, realAcc: 0 }; map[k].realAcc += r.valor })
-    return Object.values(map).sort((a: any, b: any) => a.proj.localeCompare(b.proj) || a.item.localeCompare(b.item))
+    const map: Record<string, BudTableRow> = {}
+    const key = (r: { proj: string; tipo: string; item: string; sub: string }) =>
+      `${r.proj}||${r.tipo}||${r.item}||${r.sub}`
+    const init = (r: { proj: string; tipo: string; item: string; sub: string }): BudTableRow =>
+      ({ proj: r.proj, tipo: r.tipo, item: r.item, sub: r.sub, bt: 0, bp: 0, real: 0, realAcc: 0 })
+    budAll.forEach(r => { const k = key(r); if (!map[k]) map[k] = init(r); map[k].bt += r.valor })
+    budPerFilter.forEach(r => { const k = key(r); if (!map[k]) map[k] = init(r); map[k].bp += r.valor })
+    extPerFilter.forEach(r => { const k = key(r); if (!map[k]) map[k] = init(r); map[k].real += r.valor })
+    extAll.forEach(r => { const k = key(r); if (!map[k]) map[k] = init(r); map[k].realAcc += r.valor })
+    return Object.values(map).sort((a, b) => a.proj.localeCompare(b.proj) || a.item.localeCompare(b.item))
   }, [budAll, extAll, budDe, budAte])
 
-  // Lancamentos
   const lancamentos = useMemo(() => {
     let rows = ext.filter(r => {
       if (!search) return true
       return (r.fornecedor + r.obs + r.sub + r.item + r.descricao).toLowerCase().includes(search.toLowerCase())
     })
     rows = [...rows].sort((a, b) => {
-      const av = sortCol === 'valor' ? a.valor : sortCol === 'data' ? (a.mes || '') : (a as any)[sortCol] || ''
-      const bv = sortCol === 'valor' ? b.valor : sortCol === 'data' ? (b.mes || '') : (b as any)[sortCol] || ''
+      const av: string | number = sortCol === 'valor' ? a.valor : sortCol === 'data' ? (a.mes || '') : ((a as Record<string, unknown>)[sortCol] as string) || ''
+      const bv: string | number = sortCol === 'valor' ? b.valor : sortCol === 'data' ? (b.mes || '') : ((b as Record<string, unknown>)[sortCol] as string) || ''
       const c = av < bv ? -1 : av > bv ? 1 : 0
       return sortDir === 'asc' ? c : -c
     })
@@ -155,14 +171,16 @@ export default function TabFinanceiro({ budgetRows, extratoRows, allMes, allAnos
     else { setSortCol(col); setSortDir('desc') }
   }
 
-  const sel = (val: string, set: (v: string) => void, opts: [string, string][], lbl: string) => (
-    <div key={lbl} className="flex items-center gap-2">
-      <span className="text-[11px] mono uppercase tracking-wider" style={{ color: 'var(--muted)' }}>{lbl}</span>
-      <select value={val} onChange={e => set(e.target.value)} className="cf-select">
-        {opts.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
-      </select>
-    </div>
-  )
+  function Sel({ val, set, opts, lbl }: { val: string; set: (v: string) => void; opts: [string, string][]; lbl: string }) {
+    return (
+      <div className="flex items-center gap-2">
+        <span className="text-[11px] mono uppercase tracking-wider" style={{ color: 'var(--muted)' }}>{lbl}</span>
+        <select value={val} onChange={e => set(e.target.value)} className="cf-select">
+          {opts.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+        </select>
+      </div>
+    )
+  }
 
   return (
     <div>
@@ -182,14 +200,14 @@ export default function TabFinanceiro({ budgetRows, extratoRows, allMes, allAnos
           ))}
         </div>
         <div className="w-px h-6" style={{ background: 'var(--border)' }} />
-        {sel(f.ano, v => setF('ano', v), [['all', 'Todos'], ...allAnos.map(a => [a, a] as [string, string])], 'Ano')}
-        {sel(f.mes, v => setF('mes', v), [['all', 'Todos os Meses'], ...allMes.map(m => [m, m] as [string, string])], 'Mês')}
-        {sel(f.tipo, v => { setF('tipo', v); setFilters({ ...f, tipo: v, item: 'all', sub: 'all' }) }, [['all', 'Todos'], ...todos_tipos.map(t => [t, t] as [string, string])], 'Tipo')}
-        {sel(f.item, v => { setFilters({ ...f, item: v, sub: 'all' }) }, [['all', 'Todos'], ...todos_items.map(t => [t, t] as [string, string])], 'Item')}
-        {sel(f.sub, v => setF('sub', v), [['all', 'Todos'], ...todos_subs.map(t => [t, t] as [string, string])], 'SubItem')}
+        <Sel val={f.ano} set={v => setF('ano', v)} opts={[['all', 'Todos'], ...allAnos.map(a => [a, a] as [string, string])]} lbl="Ano" />
+        <Sel val={f.mes} set={v => setF('mes', v)} opts={[['all', 'Todos os Meses'], ...allMes.map(m => [m, m] as [string, string])]} lbl="Mês" />
+        <Sel val={f.tipo} set={v => setFilters({ ...f, tipo: v, item: 'all', sub: 'all' })} opts={[['all', 'Todos'], ...todos_tipos.map(t => [t, t] as [string, string])]} lbl="Tipo" />
+        <Sel val={f.item} set={v => setFilters({ ...f, item: v, sub: 'all' })} opts={[['all', 'Todos'], ...todos_items.map(t => [t, t] as [string, string])]} lbl="Item" />
+        <Sel val={f.sub} set={v => setF('sub', v)} opts={[['all', 'Todos'], ...todos_subs.map(t => [t, t] as [string, string])]} lbl="SubItem" />
       </div>
 
-      {/* KPIs */}
+      {/* KPIs Total */}
       <div className="sec-title mb-3">Resumo Total</div>
       <div className="grid grid-cols-2 md:grid-cols-3 gap-2.5 mb-3">
         <KpiCard label="Budget Total" value={fmtM(Math.abs(budTot))} sub="Orçamento completo" />
@@ -197,12 +215,12 @@ export default function TabFinanceiro({ budgetRows, extratoRows, allMes, allAnos
         <KpiCard label="Saldo Total" value={fmtM(Math.abs(saldoTot))} sub={saldoTot <= 0 ? 'Dentro do orçamento' : 'Acima do orçamento'} accent={saldoTot <= 0 ? 'green' : 'red'} />
       </div>
 
-      {/* YTD Periodo */}
+      {/* KPIs Período */}
       <div className="flex items-center gap-3 mb-3 flex-wrap">
         <div className="sec-title flex-1 mb-0">Acumulado do Período</div>
         <div className="flex gap-2 items-center flex-wrap">
-          {sel(pDe, setPDe, [['', 'Início'], ...allMes.map(m => [m, m] as [string, string])], 'De')}
-          {sel(pAte, setPAte, [['', 'Fim'], ...allMes.map(m => [m, m] as [string, string])], 'Até')}
+          <Sel val={pDe} set={setPDe} opts={[['', 'Início'], ...allMes.map(m => [m, m] as [string, string])]} lbl="De" />
+          <Sel val={pAte} set={setPAte} opts={[['', 'Fim'], ...allMes.map(m => [m, m] as [string, string])]} lbl="Até" />
           {(pDe || pAte) && <button onClick={() => { setPDe(''); setPAte('') }} className="text-[11px] mono px-2 py-1 rounded" style={{ background: 'var(--bg3)', border: '1px solid var(--border)', color: 'var(--muted)' }}>✕</button>}
         </div>
       </div>
@@ -222,7 +240,7 @@ export default function TabFinanceiro({ budgetRows, extratoRows, allMes, allAnos
               <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,.04)" />
               <XAxis dataKey="cat" tick={{ fontSize: 9, fontFamily: 'IBM Plex Mono', fill: '#555' }} />
               <YAxis tick={{ fontSize: 9, fontFamily: 'IBM Plex Mono', fill: '#555' }} tickFormatter={fmtM} />
-              <Tooltip contentStyle={ttStyle} formatter={(v: any) => fmtF(v)} />
+              <Tooltip contentStyle={ttStyle} formatter={(v: number) => fmtF(v)} />
               <Legend wrapperStyle={{ fontSize: 11, fontFamily: 'IBM Plex Mono', color: '#888' }} />
               <Bar dataKey="budget" name="Budget" fill="rgba(255,255,255,.1)" radius={[2, 2, 0, 0]} />
               <Bar dataKey="realizado" name="Realizado" fill="rgba(255,107,0,.75)" radius={[2, 2, 0, 0]} />
@@ -236,7 +254,7 @@ export default function TabFinanceiro({ budgetRows, extratoRows, allMes, allAnos
               <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,.04)" />
               <XAxis dataKey="mes" tick={{ fontSize: 9, fontFamily: 'IBM Plex Mono', fill: '#555' }} />
               <YAxis tick={{ fontSize: 9, fontFamily: 'IBM Plex Mono', fill: '#555' }} tickFormatter={fmtM} />
-              <Tooltip contentStyle={ttStyle} formatter={(v: any) => fmtF(v)} />
+              <Tooltip contentStyle={ttStyle} formatter={(v: number) => fmtF(v)} />
               <Legend wrapperStyle={{ fontSize: 11, fontFamily: 'IBM Plex Mono', color: '#888' }} />
               <Line type="monotone" dataKey="budget" name="Budget" stroke="rgba(255,255,255,.3)" strokeDasharray="4 3" dot={{ r: 2 }} />
               <Line type="monotone" dataKey="realizado" name="Realizado" stroke="var(--orange)" dot={{ r: 3, fill: 'var(--orange)' }} />
@@ -245,12 +263,12 @@ export default function TabFinanceiro({ budgetRows, extratoRows, allMes, allAnos
         </div>
       </div>
 
-      {/* Budget x Real Table */}
-      <div className="sec-title mb-3 flex items-center gap-3 flex-wrap">
-        <span>Budget × Realizado por Item</span>
-        <div className="flex gap-2 items-center ml-auto">
-          {sel(budDe, setBudDe, [['', 'Início'], ...allMes.map(m => [m, m] as [string, string])], 'De')}
-          {sel(budAte, setBudAte, [['', 'Fim'], ...allMes.map(m => [m, m] as [string, string])], 'Até')}
+      {/* Budget Table */}
+      <div className="flex items-center gap-3 mb-3 flex-wrap">
+        <div className="sec-title flex-1 mb-0">Budget × Realizado por Item</div>
+        <div className="flex gap-2 items-center">
+          <Sel val={budDe} set={setBudDe} opts={[['', 'Início'], ...allMes.map(m => [m, m] as [string, string])]} lbl="De" />
+          <Sel val={budAte} set={setBudAte} opts={[['', 'Fim'], ...allMes.map(m => [m, m] as [string, string])]} lbl="Até" />
           {(budDe || budAte) && <button onClick={() => { setBudDe(''); setBudAte('') }} className="text-[11px] mono px-2 py-1 rounded" style={{ background: 'var(--bg3)', border: '1px solid var(--border)', color: 'var(--muted)' }}>✕</button>}
         </div>
       </div>
@@ -258,14 +276,12 @@ export default function TabFinanceiro({ budgetRows, extratoRows, allMes, allAnos
         <div className="overflow-x-auto max-h-96">
           <table className="w-full">
             <thead><tr>
-              <th className="cf-th">Projeto</th><th className="cf-th">Tipo</th><th className="cf-th">Item</th><th className="cf-th">SubItem</th>
-              <th className="cf-th text-right">Budget Total</th><th className="cf-th text-right">Budget Período</th>
-              <th className="cf-th text-right">Real Período</th><th className="cf-th text-right">Saldo Per.</th>
-              <th className="cf-th text-right">Real Acc.</th><th className="cf-th text-right">Saldo Total</th>
-              <th className="cf-th text-right">%</th><th className="cf-th">Prog.</th>
+              {['Projeto','Tipo','Item','SubItem','Budget Total','Budget Per.','Real Per.','Saldo Per.','Real Acc.','Saldo Total','%','Prog.'].map(h => (
+                <th key={h} className={`cf-th ${['Budget Total','Budget Per.','Real Per.','Saldo Per.','Real Acc.','Saldo Total','%'].includes(h) ? 'text-right' : ''}`}>{h}</th>
+              ))}
             </tr></thead>
             <tbody>
-              {budTableData.map((r: any, i) => {
+              {budTableData.map((r, i) => {
                 const aBT = Math.abs(r.bt), aBP = Math.abs(r.bp), aR = Math.abs(r.real), aRA = Math.abs(r.realAcc)
                 const sP = r.bp - r.real, sT = r.bt - r.realAcc
                 const pct = aBP > 0 ? (aR / aBP * 100) : 0
@@ -291,12 +307,11 @@ export default function TabFinanceiro({ budgetRows, extratoRows, allMes, allAnos
                   </tr>
                 )
               })}
-              {/* Total row */}
               {budTableData.length > 0 && (() => {
-                const tBT = budTableData.reduce((s: number, r: any) => s + r.bt, 0)
-                const tBP = budTableData.reduce((s: number, r: any) => s + r.bp, 0)
-                const tR  = budTableData.reduce((s: number, r: any) => s + r.real, 0)
-                const tRA = budTableData.reduce((s: number, r: any) => s + r.realAcc, 0)
+                const tBT = budTableData.reduce((s, r) => s + r.bt, 0)
+                const tBP = budTableData.reduce((s, r) => s + r.bp, 0)
+                const tR  = budTableData.reduce((s, r) => s + r.real, 0)
+                const tRA = budTableData.reduce((s, r) => s + r.realAcc, 0)
                 const tSP = tBP - tR, tST = tBT - tRA
                 const tPct = tBP !== 0 ? (tR / tBP * 100) : 0
                 return (
@@ -359,9 +374,9 @@ export default function TabFinanceiro({ budgetRows, extratoRows, allMes, allAnos
           <div className="flex items-center gap-1.5 px-4 py-2.5 text-xs mono flex-wrap" style={{ borderTop: '1px solid var(--border)', color: 'var(--muted)' }}>
             <span>{page}/{totalPages}</span>
             <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1} className="px-2 py-0.5 rounded" style={{ background: 'var(--bg3)', border: '1px solid var(--border)', opacity: page === 1 ? 0.3 : 1 }}>←</button>
-            {Array.from({ length: totalPages }, (_, i) => i + 1).filter(p => Math.abs(p - page) <= 2 || p === 1 || p === totalPages).map((p, i, arr) => (
+            {Array.from({ length: totalPages }, (_, i) => i + 1).filter(p => Math.abs(p - page) <= 2 || p === 1 || p === totalPages).map((p, idx, arr) => (
               <span key={p}>
-                {i > 0 && arr[i - 1] !== p - 1 && <span className="px-1">…</span>}
+                {idx > 0 && arr[idx - 1] !== p - 1 && <span className="px-1">…</span>}
                 <button onClick={() => setPage(p)} className="px-2 py-0.5 rounded" style={{ background: p === page ? 'var(--orange)' : 'var(--bg3)', color: p === page ? 'white' : 'var(--dim)', border: '1px solid var(--border)' }}>{p}</button>
               </span>
             ))}
