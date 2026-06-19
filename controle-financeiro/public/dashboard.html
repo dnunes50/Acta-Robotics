@@ -1524,7 +1524,9 @@ async function loadFromSupabase() {
       budgetRows = rb.rows.map(r=>({...r, proj: fixProj(r.proj), mes: r.mes ? new Date(r.mes+'T00:00:00') : null}));
     }
     if (re.rows?.length) {
-      extratoRows = re.rows.map(r=>({...r, proj: fixProj(r.proj), mes: r.mes ? new Date(r.mes+'T00:00:00') : null}));
+      extratoRows = re.rows
+        .filter(r => (r.origem || '').trim() !== 'Transferência')
+        .map(r=>({...r, _origem: r.origem, proj: fixProj(r.proj), mes: r.mes ? new Date(r.mes+'T00:00:00') : null}));
     }
     if (rc.map) classMap = rc.map;
     initFilters(); run();
@@ -1642,6 +1644,7 @@ function getReceitas(projFilter){
 function getDespesas(projFilter){
   return extratoRows.filter(r=>{
     if(r.valor>=0) return false;
+    if((r._origem||r.origem||'') === 'Transferência') return false;
     if(projFilter && projFilter!=='all' && r.proj!==projFilter) return false;
     return true;
   });
