@@ -1571,6 +1571,21 @@ async function doLogin() {
     document.getElementById('login-error').style.display='block';
   }
 }
+
+// -- THEME TOGGLE -------------------------------------------------------------
+function toggleTheme(){
+  const isLight=document.documentElement.classList.toggle('light');
+  const btn=document.getElementById('theme-btn');
+  if(btn) btn.textContent=isLight?'🌙':'☀';
+  localStorage.setItem('cf-theme',isLight?'light':'dark');
+  // Redraw charts with new colors
+  if(typeof run==='function') run();
+}
+(function(){
+  if(localStorage.getItem('cf-theme')==='light'){
+    document.documentElement.classList.add('light');
+  }
+})();
 </script>
 
 <!-- FILE INPUTS at body level -->

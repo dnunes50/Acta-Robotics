@@ -14,12 +14,12 @@ export async function GET(req: Request) {
 
   try {
     if (table === 'budget') {
-      const { data, error } = await supabase.from('cf_budget_rows').select('*').order('mes')
+      const { data, error } = await supabase.from('cf_budget_rows').select('*').order('mes').range(0, 9999)
       if (error) throw error
       return NextResponse.json({ rows: data || [] })
     }
     if (table === 'extrato') {
-      const { data, error } = await supabase.from('cf_extrato_rows').select('*').order('mes')
+      const { data, error } = await supabase.from('cf_extrato_rows').select('*').order('mes').range(0, 9999)
       if (error) throw error
       return NextResponse.json({ rows: data || [] })
     }
