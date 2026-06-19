@@ -1518,11 +1518,13 @@ async function loadFromSupabase() {
       fetch('/api/data?table=extrato').then(r=>r.json()),
       fetch('/api/data?table=classmap').then(r=>r.json()),
     ]);
+    // Defensive normalization in case older rows were saved with inconsistent casing
+    const fixProj = p => { const u=(p||'').trim().toUpperCase(); if(u==='FINEP')return 'Finep'; if(u==='NAVE ANP')return 'NAVE ANP'; return (p||'').trim(); };
     if (rb.rows?.length) {
-      budgetRows = rb.rows.map(r=>({...r, mes: r.mes ? new Date(r.mes+'T00:00:00') : null}));
+      budgetRows = rb.rows.map(r=>({...r, proj: fixProj(r.proj), mes: r.mes ? new Date(r.mes+'T00:00:00') : null}));
     }
     if (re.rows?.length) {
-      extratoRows = re.rows.map(r=>({...r, mes: r.mes ? new Date(r.mes+'T00:00:00') : null}));
+      extratoRows = re.rows.map(r=>({...r, proj: fixProj(r.proj), mes: r.mes ? new Date(r.mes+'T00:00:00') : null}));
     }
     if (rc.map) classMap = rc.map;
     initFilters(); run();

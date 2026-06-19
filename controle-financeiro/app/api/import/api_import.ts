@@ -1,6 +1,13 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 
+function normProj(p: string): string {
+  const u = (p || '').trim().toUpperCase()
+  if (u === 'FINEP') return 'Finep'
+  if (u === 'NAVE ANP') return 'NAVE ANP'
+  return (p || '').trim()
+}
+
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
@@ -15,7 +22,7 @@ export async function POST(req: Request) {
       await supabase.from('cf_budget_rows').delete().neq('id', 0)
       if (rows?.length) {
         const toInsert = rows.map((r: any) => ({
-          proj: r.proj, mes: r.mes ? String(r.mes).slice(0,10) : null,
+          proj: normProj(r.proj), mes: r.mes ? String(r.mes).slice(0,10) : null,
           tipo: r.tipo, item: r.item, sub: r.sub, valor: r.valor
         }))
         for (let i = 0; i < toInsert.length; i += 500) {
@@ -40,7 +47,7 @@ export async function POST(req: Request) {
       await supabase.from('cf_extrato_rows').delete().neq('id', 0)
       if (rows?.length) {
         const toInsert = rows.map((r: any) => ({
-          data: r.data, proj: r.proj,
+          data: r.data, proj: normProj(r.proj),
           mes: r.mes ? String(r.mes).slice(0,10) : null,
           obs: r.obs, valor: r.valor, fornecedor: r.fornecedor,
           conta: r.conta, situacao: r.situacao, descricao: r.descricao,
