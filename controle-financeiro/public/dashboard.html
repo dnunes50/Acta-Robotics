@@ -962,7 +962,7 @@ function renderKPIs(){
 
   // Total (all time, with proj + tipo/item/sub filters)
   const budAll=budgetRows.filter(r=>(activeProj==='all'||r.proj===activeProj)&&applyFilt(r));
-  const extAll=extratoRows.filter(r=>(activeProj==='all'||r.proj===activeProj)&&applyFilt(r));
+  const extAll=extratoRows.filter(r=>r.valor<0&&(r._origem||r.origem||'')!=='Transferência'&&(activeProj==='all'||r.proj===activeProj)&&applyFilt(r));
   const budTot=sum(budAll), realTot=sum(extAll);
   // Both negative: saldo = budget - real. budget=-10, real=-9 → saldo=-1 (under budget = good)
   // saldo < 0 means spent less than budget → OK. saldo > 0 means overspent → bad
@@ -1101,7 +1101,7 @@ function renderDrill(){
   budgetRows.filter(r=>proj==='all'||r.proj===proj).forEach(r=>{
     if(r.mes){ const k=mesLbl(r.mes); if(!mesMap[k]) mesMap[k]=r.mes; }
   });
-  extratoRows.filter(r=>(proj==='all'||r.proj===proj)&&(subSel==='all'||r.sub===subSel)).forEach(r=>{
+  extratoRows.filter(r=>r.valor<0&&(r._origem||r.origem||'')!=='Transferência'&&(proj==='all'||r.proj===proj)&&(subSel==='all'||r.sub===subSel)).forEach(r=>{
     if(r.mes){ const k=mesLbl(r.mes); if(!mesMap[k]) mesMap[k]=r.mes; }
   });
   const allMes=Object.entries(mesMap).sort((a,b)=>a[1]-b[1]).map(x=>x[0]);
@@ -1113,7 +1113,7 @@ function renderDrill(){
 
   // Real per month (including future lançamentos already in extrato)
   const realByMes={};
-  extratoRows.filter(r=>(proj==='all'||r.proj===proj)&&(subSel==='all'||r.sub===subSel)&&r.mes)
+  extratoRows.filter(r=>r.valor<0&&(r._origem||r.origem||'')!=='Transferência'&&(proj==='all'||r.proj===proj)&&(subSel==='all'||r.sub===subSel)&&r.mes)
     .forEach(r=>{ const k=mesLbl(r.mes); realByMes[k]=(realByMes[k]||0)+r.valor; });
 
   // Build rows with accumulated budget and real
@@ -1199,7 +1199,7 @@ function renderBudTable(){
   const sub=document.getElementById('f-sub').value;
   const applyClass=r=>(tipo==='all'||r.tipo===tipo)&&(item==='all'||r.item===item)&&(sub==='all'||r.sub===sub);
   const budAll=budgetRows.filter(r=>(activeProj==='all'||r.proj===activeProj)&&applyClass(r));
-  const extAll=extratoRows.filter(r=>(activeProj==='all'||r.proj===activeProj)&&applyClass(r));
+  const extAll=extratoRows.filter(r=>r.valor<0&&(r._origem||r.origem||'')!=='Transferência'&&(activeProj==='all'||r.proj===activeProj)&&applyClass(r));
 
   // Período do quadro (bud-de / bud-ate)
   const mesMapBud={};
@@ -1213,7 +1213,7 @@ function renderBudTable(){
   const inBudPer=r=>r.mes&&(!dBDe||r.mes>=dBDe)&&(!dBAteEnd||r.mes<=dBAteEnd);
 
   const budPer=budgetRows.filter(r=>(activeProj==='all'||r.proj===activeProj)&&applyClass(r)&&inBudPer(r));
-  const extPer=extratoRows.filter(r=>(activeProj==='all'||r.proj===activeProj)&&applyClass(r)&&inBudPer(r));
+  const extPer=extratoRows.filter(r=>r.valor<0&&(r._origem||r.origem||'')!=='Transferência'&&(activeProj==='all'||r.proj===activeProj)&&applyClass(r)&&inBudPer(r));
 
   const map={};
   const addTo=(arr,field)=>arr.forEach(r=>{
@@ -1426,7 +1426,8 @@ function exportarExcel(){
 
   // ── ABA 2: Extrato Realizado ───────────────────────────────────────────────
   const extHeader = ['Data','Projeto','Conta Bancária','Tipo de Despesa','Item de Despesa','SubItem de Despesa','Observação Original','Fornecedor','Valor (R$)','Classificada','Situação'];
-  const extData = extratoRows.map(r => [
+  const extOnlyDespesas = extratoRows.filter(r=>r.valor<0&&(r._origem||r.origem||'')!=='Transferência');
+  const extData = extOnlyDespesas.map(r => [
     r.data,
     r.proj,
     r.conta,
@@ -1450,7 +1451,7 @@ function exportarExcel(){
     if(!map[k]) map[k] = {proj:r.proj,tipo:r.tipo,item:r.item,sub:r.sub,bt:0,real:0};
     map[k].bt += r.valor;
   });
-  extratoRows.forEach(r => {
+  extOnlyDespesas.forEach(r => {
     const k = `${r.proj}||${r.tipo}||${r.item}||${r.sub}`;
     if(!map[k]) map[k] = {proj:r.proj,tipo:r.tipo,item:r.item,sub:r.sub,bt:0,real:0};
     map[k].real += r.valor;
