@@ -1520,6 +1520,10 @@ async function loadFromSupabase() {
     }
     if (rc.map) classMap = rc.map;
     initFilters(); run();
+    // If Caixa tab is currently active, re-render it too with fresh data
+    if (document.getElementById('painel-caixa')?.style.display === 'block') {
+      populateCxPeriodo(); renderCaixa();
+    }
   } catch(e) {
     console.warn('Supabase load failed, starting empty:', e.message);
     initFilters(); run();
