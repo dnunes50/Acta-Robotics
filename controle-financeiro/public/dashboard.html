@@ -231,7 +231,6 @@ thead th{vertical-align:top}
     <span class="hdr-fname" id="fn-ext" style="color:var(--muted)"></span>
     <button class="btn" id="theme-btn" style="font-size:11px" onclick="toggleTheme()" title="Alternar tema">☀</button>
     <button class="btn" style="font-size:11px" onclick="openImport()">📥 Importar</button>
-    <button class="btn" style="font-size:11px" onclick="resetApp()">↩ Recomeçar</button>
   </div>
 </header>
 
@@ -771,21 +770,6 @@ function openDash(){
   document.getElementById('hdr-r').style.display='flex';
   initFilters();
   run();
-}
-
-function resetApp(){
-  budgetRows=[];extratoRows=[];classMap={};
-  document.getElementById('setup').style.display='flex';
-  document.getElementById('dash').style.display='none';
-  document.getElementById('hdr-r').style.display='none';
-  ['bud','ext'].forEach(id=>{
-    document.getElementById(`dz-${id}`).classList.remove('done');
-    const s=document.getElementById(`st-${id}`); s.classList.remove('show'); s.innerHTML='';
-  });
-  document.getElementById('fn-bud').textContent='';
-  document.getElementById('fn-ext').textContent='sem extrato';
-  Object.keys(charts).forEach(k=>{charts[k].destroy();delete charts[k];});
-  checkReady();
 }
 
 // ── FILTERS ──────────────────────────────────────────────────────────────────
