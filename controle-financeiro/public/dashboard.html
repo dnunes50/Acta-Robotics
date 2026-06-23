@@ -714,8 +714,8 @@ function processExtrato(file){
           descricao: (r['Descrição']||'').trim(),
           sub:'', item:'', tipo:'', classified:false,
         };
-      })
-      .filter(r=>r.valor<0); // only expenses
+      });
+    // Note: keep both expenses (valor<0) and receitas (valor>0) — Caixa tab needs receitas
 
     classifyExtrato();
 
