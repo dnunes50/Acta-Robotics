@@ -1511,12 +1511,12 @@ async function loadFromSupabase() {
     // Defensive normalization in case older rows were saved with inconsistent casing
     const fixProj = p => { const u=(p||'').trim().toUpperCase(); if(u==='FINEP')return 'Finep'; if(u==='NAVE ANP')return 'NAVE ANP'; return (p||'').trim(); };
     if (rb.rows?.length) {
-      budgetRows = rb.rows.map(r=>({...r, proj: fixProj(r.proj), mes: r.mes ? new Date(r.mes+'T00:00:00') : null}));
+      budgetRows = rb.rows.map(r=>({...r, valor: Number(r.valor), proj: fixProj(r.proj), mes: r.mes ? new Date(r.mes+'T00:00:00') : null}));
     }
     if (re.rows?.length) {
       extratoRows = re.rows
         .filter(r => (r.origem || '').trim() !== 'Transferência')
-        .map(r=>({...r, _origem: r.origem, proj: fixProj(r.proj), mes: r.mes ? new Date(r.mes+'T00:00:00') : null}));
+        .map(r=>({...r, valor: Number(r.valor), _origem: r.origem, proj: fixProj(r.proj), mes: r.mes ? new Date(r.mes+'T00:00:00') : null}));
     }
     if (rc.map) classMap = rc.map;
     initFilters(); run();
@@ -1668,24 +1668,28 @@ function getBudgetRestante(projFilter){
 let cxCharts = {};
 function dkCx(id){ if(cxCharts[id]){cxCharts[id].destroy();delete cxCharts[id];} }
 
+let cxMesMap = {};
+
 function populateCxPeriodo(){
   // Build all months from extrato
-  const mesMap={};
-  extratoRows.forEach(r=>{ if(r.mes){const k=mesLbl(r.mes);if(!mesMap[k])mesMap[k]=r.mes;} });
-  const meses=Object.entries(mesMap).sort((a,b)=>a[1]-b[1]).map(x=>x[0]);
+  cxMesMap={};
+  extratoRows.forEach(r=>{ if(r.mes){const k=mesLbl(r.mes);if(!cxMesMap[k])cxMesMap[k]=r.mes;} });
+  const meses=Object.entries(cxMesMap).sort((a,b)=>a[1]-b[1]).map(x=>x[0]);
   const now=new Date();
   const curLbl=mesLbl(now);
   ['cx-de','cx-ate'].forEach(id=>{
     const sel=document.getElementById(id);
-    if(!sel||sel.options.length>1) return; // already populated
+    if(!sel) return;
+    const prevVal=sel.value;
     sel.innerHTML='<option value="">Todos</option>';
     meses.forEach(m=>{const o=document.createElement('option');o.value=m;o.textContent=m;sel.appendChild(o);});
+    if(meses.includes(prevVal)) sel.value=prevVal;
   });
-  // Default: De = first month, Ate = current month
+  // Default: De = first month, Ate = current month (only if not already set)
   const selDe=document.getElementById('cx-de');
   const selAte=document.getElementById('cx-ate');
-  if(selDe&&selDe.value===''&&meses.length) selDe.value=meses[0];
-  if(selAte&&selAte.value===''){
+  if(selDe&&!selDe.value&&meses.length) selDe.value=meses[0];
+  if(selAte&&!selAte.value&&meses.length){
     selAte.value=meses.includes(curLbl)?curLbl:meses[meses.length-1];
   }
 }
@@ -1701,10 +1705,9 @@ function cxInPeriodo(r){
   const ate=document.getElementById('cx-ate')?.value;
   if(!de&&!ate) return true;
   if(!r.mes) return false;
-  const mesMap={};
-  extratoRows.forEach(x=>{if(x.mes){const k=mesLbl(x.mes);if(!mesMap[k])mesMap[k]=x.mes;}});
-  const dDe=de&&mesMap[de]?mesMap[de]:null;
-  const dAte=ate&&mesMap[ate]?new Date(mesMap[ate].getFullYear(),mesMap[ate].getMonth()+1,0):null;
+  const dDe=de&&cxMesMap[de]?cxMesMap[de]:null;
+  const dAteRaw=ate&&cxMesMap[ate]?cxMesMap[ate]:null;
+  const dAte=dAteRaw?new Date(dAteRaw.getFullYear(),dAteRaw.getMonth()+1,0):null;
   if(dDe&&r.mes<dDe) return false;
   if(dAte&&r.mes>dAte) return false;
   return true;
