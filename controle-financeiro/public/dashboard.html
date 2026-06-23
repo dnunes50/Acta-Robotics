@@ -914,6 +914,7 @@ function fExt(){
   const sub=document.getElementById('f-sub').value;
   return extratoRows.filter(r=>{
     if(r.valor>=0) return false; // only expenses in financial control
+    if((r._origem||r.origem||'')==='Transferência') return false; // defense in depth
     if(activeProj!=='all'&&r.proj!==activeProj) return false;
     if(ano!=='all'&&String(r.mes&&r.mes.getFullYear())!==String(ano)) return false;
     if(mes!=='all'&&mesLbl(r.mes)!==mes) return false;
