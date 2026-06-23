@@ -653,7 +653,10 @@ function processBudget(file){
     st.innerHTML=`<span class="st-ok">✓ ${file.name}</span><br><span class="badge">${budgetRows.length} linhas de budget</span> <span class="badge">${Object.keys(classMap).length} classificações</span>`;
     document.getElementById('fn-bud').textContent=file.name;
     document.getElementById('imp-card-bud').classList.add('done');
-    document.getElementById('imp-st-bud').textContent='✓ '+file.name;
+    document.getElementById('imp-st-bud').textContent='✓ '+file.name+' · salvando...';
+    saveToSupabase('budget', budgetRows, classMap).then(()=>{
+      document.getElementById('imp-st-bud').textContent='✓ '+file.name+' · salvo no banco';
+    });
 
     // Re-classify extrato if already loaded
     if(extratoRows.length) classifyExtrato();
@@ -723,7 +726,10 @@ function processExtrato(file){
     st.innerHTML=`<span class="st-ok">✓ ${file.name}</span><br><span class="badge">${extratoRows.length} despesas importadas</span>`;
     document.getElementById('fn-ext').textContent=file.name;
     document.getElementById('imp-card-ext').classList.add('done');
-    document.getElementById('imp-st-ext').textContent='✓ '+file.name;
+    document.getElementById('imp-st-ext').textContent='✓ '+file.name+' · salvando...';
+    saveToSupabase('extrato', extratoRows).then(()=>{
+      document.getElementById('imp-st-ext').textContent='✓ '+file.name+' · salvo no banco';
+    });
 
     if(document.getElementById('dash').style.display==='block'){ run(); populateColFilters(); }
     else checkReady();
