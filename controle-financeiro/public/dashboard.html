@@ -1425,23 +1425,14 @@ function exportarExcel(){
   XLSX.utils.book_append_sheet(wb, wsBud, 'Budget');
 
   // ── ABA 2: Extrato Realizado ───────────────────────────────────────────────
-  const extHeader = ['Data','Projeto','Conta Bancária','Tipo de Despesa','Item de Despesa','SubItem de Despesa','Observação Original','Fornecedor','Valor (R$)','Classificada','Situação'];
+  const extHeader = ['Data','Projeto','Conta Bancária','Tipo de Despesa','Item de Despesa','SubItem de Despesa','Observação Original','Descrição','Fornecedor','Valor (R$)','Classificada','Situação'];
   const extOnlyDespesas = extratoRows.filter(r=>r.valor<0&&(r._origem||r.origem||'')!=='Transferência');
   const extData = extOnlyDespesas.map(r => [
-    r.data,
-    r.proj,
-    r.conta,
-    r.tipo,
-    r.item,
-    r.sub,
-    r.obs,
-    r.fornecedor,
-    r.valor,
-    r.classified ? 'Sim' : 'Não',
-    r.situacao
+    r.data, r.proj, r.conta, r.tipo, r.item, r.sub, r.obs, r.descricao, r.fornecedor,
+    r.valor, r.classified ? 'Sim' : 'Não', r.situacao
   ]);
   const wsExt = XLSX.utils.aoa_to_sheet([extHeader, ...extData]);
-  wsExt['!cols'] = [12,10,28,22,28,40,40,24,14,12,12].map(w=>({wch:w}));
+  wsExt['!cols'] = [12,10,28,22,28,40,40,40,24,14,12,12].map(w=>({wch:w}));
   XLSX.utils.book_append_sheet(wb, wsExt, 'Extrato Realizado');
 
   // ── ABA 3: Budget x Realizado (consolidado) ────────────────────────────────
