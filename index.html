@@ -274,7 +274,14 @@
   <div class="header-right">
     <div class="htitle">Posição de Caixa</div>
     <div class="hdate" id="hdate"></div>
-    <div style="display:flex;align-items:center;gap:6px;margin-top:3px;justify-content:flex-end"><div class="sync-btn" id="sync-status" onclick="sincronizar()">↻ Sincronizar</div><div class="user-badge" id="user-email-badge"></div><div class="user-badge" onclick="fazerLogout()" title="Sair">Sair</div></div>
+    <div style="display:flex;flex-direction:column;align-items:flex-end;gap:3px;margin-top:3px">
+      <div style="display:flex;align-items:center;gap:6px">
+        <div class="sync-btn" id="sync-status" onclick="sincronizar()">↻ Sincronizar</div>
+        <div class="user-badge" id="user-email-badge"></div>
+        <div class="user-badge" onclick="fazerLogout()" title="Sair">Sair</div>
+      </div>
+      <div id="sync-error-detail" style="display:none;font-size:10px;color:#f87171;max-width:400px;text-align:right"></div>
+    </div>
   </div>
 </div>
 
@@ -890,11 +897,19 @@ async function carregarDoSupabase() {
     processarDados()
     esconderLoading()
     document.getElementById('sync-status').textContent = `✓ Sincronizado (${DATA.length} registros)`
+    document.getElementById('sync-error-detail').style.display = 'none'
 
   } catch(err) {
-    console.error(err)
-    setLoadMsg('Erro ao conectar: ' + (err.message || 'verifique as credenciais'))
+    console.error('Erro carregarDoSupabase:', err)
+    const msg = err?.message || err?.error_description || String(err) || 'erro desconhecido'
+    const detalhes = err?.details ? ` — ${err.details}` : ''
+    const hint = err?.hint ? ` (${err.hint})` : ''
+    const fullMsg = msg + detalhes + hint
+    setLoadMsg('Erro: ' + fullMsg)
     document.getElementById('sync-status').textContent = '✗ Erro ao sincronizar'
+    const detEl = document.getElementById('sync-error-detail')
+    detEl.textContent = fullMsg
+    detEl.style.display = 'block'
     setTimeout(esconderLoading, 3000)
   }
 }
