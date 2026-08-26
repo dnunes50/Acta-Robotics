@@ -965,6 +965,21 @@ function recalcSaldos() {
     m.parcial = (sits.has('Em aberto')||sits.has('Atrasado')) && (sits.has('Conciliado')||sits.has('Quitado')||sits.has('Transferido'))
   })
   AMES = 'all'
+
+  // Pré-seleciona a conta operacional principal como filtro padrão
+  // (evita ambiguidade: extratos consolidados trazem outras contas como FINEP, BTG, BB
+  // que não têm saldo inicial configurado e não fazem sentido nesta visão de caixa)
+  if (!AF.banco) {
+    const freq = {}
+    DATA.forEach(t => { if(t.banco) freq[t.banco] = (freq[t.banco]||0) + 1 })
+    const bancos = Object.keys(freq)
+    const bancoPadrao = bancos.find(b => b.toLowerCase().includes('inter'))
+                      || bancos.sort((a,b) => freq[b]-freq[a])[0]
+                      || ''
+    if (bancoPadrao) AF.banco = bancoPadrao
+  }
+
+  recalcSaldos()
   buildMesBtns()
   populateFilterDropdowns()
   refresh()
@@ -1009,8 +1024,18 @@ function applyFilters() {
 }
 
 function clearFilters() {
-  AF = { banco:'', cat:'', cc:'', nome:'', grupo:'', d1:'', d2:'' }
-  document.getElementById('af-banco').value = ''
+  // Mantém a conta operacional padrão (Inter) ao limpar filtros —
+  // evita voltar para "Todas as contas" e misturar saldos de contas
+  // sem saldo inicial configurado (FINEP, BTG, BB etc.)
+  const freq = {}
+  DATA.forEach(t => { if(t.banco) freq[t.banco] = (freq[t.banco]||0) + 1 })
+  const bancos = Object.keys(freq)
+  const bancoPadrao = bancos.find(b => b.toLowerCase().includes('inter'))
+                    || bancos.sort((a,b) => freq[b]-freq[a])[0]
+                    || ''
+
+  AF = { banco:bancoPadrao, cat:'', cc:'', nome:'', grupo:'', d1:'', d2:'' }
+  document.getElementById('af-banco').value = bancoPadrao
   document.getElementById('af-cat').value = ''
   document.getElementById('af-cc').value = ''
   document.getElementById('af-nome').value = ''
@@ -1254,29 +1279,48 @@ function toggleDetalhe(tipo) {
 
 // ── DASHBOARD ────────────────────────────────────────────────────────────────
 function calcSaldoBanco(banco) {
-  // Saldo de uma conta = saldo_inicial + soma de TODOS os lançamentos dessa conta
-  // (inclusive "Em aberto" — senão meses 100% previstos ficam com saldo congelado)
-  const saldoIni = SALDOS_INICIAIS[banco] ?? null
-  if (saldoIni === null) return null  // sem configuração, não pode calcular
-  const soma = DATA.filter(t => t.banco === banco).reduce((s, t) => s + t.valor, 0)
+  // Saldo ATUAL de uma conta = saldo_inicial + lançamentos até HOJE
+  // (não inclui lançamentos futuros — isso é projeção, calculado em outro lugar)
+  const saldoIni = saldoInicialDaConta(banco)
+  if (saldoIni === null) return null
+  const hoje = new Date(); hoje.setHours(23,59,59,999)
+  const soma = DATA.filter(t => t.banco === banco && t.date <= hoje).reduce((s, t) => s + t.valor, 0)
   return +(saldoIni + soma).toFixed(2)
 }
 
-function calcSaldoAtual() {
-  // Sempre calcula saldo acumulado a partir de SALDO_INICIAL
-  // usando as transações filtradas pelo banco selecionado (ou banco principal)
-  // Nunca usa col M do extrato (que é saldo consolidado de todas as contas)
-  const bancoAtivo = AF.banco || (() => {
-    const freq = {}
-    DATA.forEach(t=>{ if(t.banco) freq[t.banco]=(freq[t.banco]||0)+1 })
-    const bancos = Object.keys(freq)
-    return bancos.find(b=>b.toLowerCase().includes('inter'))
-        || bancos.sort((a,b)=>freq[b]-freq[a])[0] || ''
-  })()
+// Saldo inicial de uma conta: usa configuração manual (SALDOS_INICIAIS) se existir;
+// senão, se for a conta principal (Inter), usa SALDO_INICIAL fixo;
+// senão, retorna null (conta sem configuração — não dá pra calcular saldo confiável,
+// pois a col M do extrato consolidado não representa o saldo daquela conta isolada)
+function saldoInicialDaConta(banco) {
+  if (SALDOS_INICIAIS[banco] !== undefined) return SALDOS_INICIAIS[banco]
+  if (banco && banco.toLowerCase().includes('inter')) return SALDO_INICIAL
+  return null
+}
 
-  const txnsBanco = bancoAtivo ? DATA.filter(t=>t.banco===bancoAtivo) : DATA
-  const mov = txnsBanco.reduce((s,t)=>s+t.valor, 0)
-  return +(SALDO_INICIAL + mov).toFixed(2)
+function calcSaldoAtual() {
+  // IMPORTANTE: "Saldo Atual" = saldo de HOJE, não o saldo projetado até dezembro.
+  // Por isso só soma lançamentos com data <= hoje. Lançamentos futuros ("Em aberto"
+  // com data à frente) fazem parte da PROJEÇÃO, não do saldo atual.
+  const hoje = new Date(); hoje.setHours(23,59,59,999)
+
+  if (AF.banco) {
+    const saldoIni = saldoInicialDaConta(AF.banco)
+    if (saldoIni === null) return null
+    const mov = DATA.filter(t => t.banco===AF.banco && t.date <= hoje).reduce((s,t)=>s+t.valor, 0)
+    return +(saldoIni + mov).toFixed(2)
+  }
+  // "Todas as contas": soma apenas as contas com saldo inicial conhecido
+  const bancos = [...new Set(DATA.map(t=>t.banco).filter(Boolean))]
+  let total = 0, temAlguma = false
+  bancos.forEach(b => {
+    const saldoIni = saldoInicialDaConta(b)
+    if (saldoIni === null) return
+    const mov = DATA.filter(t => t.banco===b && t.date <= hoje).reduce((s,t)=>s+t.valor, 0)
+    total += saldoIni + mov
+    temAlguma = true
+  })
+  return temAlguma ? +total.toFixed(2) : null
 }
 
 function renderDash() {
@@ -1293,8 +1337,13 @@ function renderDash() {
   const lbl = AMES==='all' ? 'Todos' : MNm(AMES).toUpperCase()
 
   // KPIs
-  document.getElementById('k-sal').textContent=R(cur)
-  document.getElementById('k-sal-s').innerHTML=`<span class="${cur>=5000?'pos':cur>=1000?'warn':'neg'}">${cur>=5000?'● Saudável':cur>=1000?'▲ Atenção':'▼ Crítico'}</span>`
+  if (cur === null) {
+    document.getElementById('k-sal').textContent = '— '
+    document.getElementById('k-sal-s').innerHTML = `<span style="color:var(--am);cursor:pointer" onclick="nav('cfg')">⚙ Configure o saldo inicial desta conta</span>`
+  } else {
+    document.getElementById('k-sal').textContent=R(cur)
+    document.getElementById('k-sal-s').innerHTML=`<span class="${cur>=5000?'pos':cur>=1000?'warn':'neg'}">${cur>=5000?'● Saudável':cur>=1000?'▲ Atenção':'▼ Crítico'}</span>`
+  }
   document.getElementById('k-rec').textContent=R(totRec)
   document.getElementById('k-rec-s').textContent=rec.length+' operações — clique para detalhar'
   document.getElementById('k-apo').textContent=R(totApo)
