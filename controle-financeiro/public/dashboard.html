@@ -1496,30 +1496,64 @@ async function supaFetch(path, opts={}) {
 }
 
 async function loadFromSupabase() {
-  try {
-    const [rb, re, rc] = await Promise.all([
-      fetch('/api/data?table=budget').then(r=>r.json()),
-      fetch('/api/data?table=extrato').then(r=>r.json()),
-      fetch('/api/data?table=classmap').then(r=>r.json()),
-    ]);
-    // Defensive normalization in case older rows were saved with inconsistent casing
-    const fixProj = p => { const u=(p||'').trim().toUpperCase(); if(u==='FINEP')return 'Finep'; if(u==='NAVE ANP')return 'NAVE ANP'; return (p||'').trim(); };
-    if (rb.rows?.length) {
-      budgetRows = rb.rows.map(r=>({...r, valor: Number(r.valor), proj: fixProj(r.proj), mes: r.mes ? new Date(r.mes+'T00:00:00') : null}));
+  const SUPA_URL = 'https://sjuzirbvogqppqmdtbhp.supabase.co';
+  const SUPA_KEY = document.querySelector('meta[name="supa-key"]')?.content || '';
+
+  async function supaFetchAll(table, order) {
+    const allRows = [];
+    const pageSize = 500;
+    let from = 0;
+    while (true) {
+      const res = await fetch(
+        `${SUPA_URL}/rest/v1/${table}?select=*&order=${order}&offset=${from}&limit=${pageSize}`,
+        { headers: { 'apikey': SUPA_KEY, 'Authorization': `Bearer ${SUPA_KEY}` } }
+      );
+      if (!res.ok) throw new Error(await res.text());
+      const data = await res.json();
+      allRows.push(...data);
+      if (data.length < pageSize) break;
+      from += pageSize;
     }
-    if (re.rows?.length) {
-      extratoRows = re.rows
-        .filter(r => (r.origem || '').trim() !== 'Transferência')
+    return allRows;
+  }
+
+  async function supaFetchClassMap() {
+    const res = await fetch(
+      `${SUPA_URL}/rest/v1/cf_class_map?select=*`,
+      { headers: { 'apikey': SUPA_KEY, 'Authorization': `Bearer ${SUPA_KEY}` } }
+    );
+    if (!res.ok) throw new Error(await res.text());
+    return await res.json();
+  }
+
+  try {
+    const [budData, extData, cmData] = await Promise.all([
+      supaFetchAll('cf_budget_rows', 'mes'),
+      supaFetchAll('cf_extrato_rows', 'mes'),
+      supaFetchClassMap(),
+    ]);
+
+    const fixProj = p => { const u=(p||'').trim().toUpperCase(); if(u==='FINEP')return 'Finep'; if(u==='NAVE ANP')return 'NAVE ANP'; return (p||'').trim(); };
+
+    if (budData.length) {
+      budgetRows = budData.map(r=>({...r, valor: Number(r.valor), proj: fixProj(r.proj), mes: r.mes ? new Date(r.mes+'T00:00:00') : null}));
+    }
+    if (extData.length) {
+      extratoRows = extData
+        .filter(r => (r.origem||'').trim() !== 'Transferência')
         .map(r=>({...r, valor: Number(r.valor), _origem: r.origem, proj: fixProj(r.proj), mes: r.mes ? new Date(r.mes+'T00:00:00') : null}));
     }
-    if (rc.map) classMap = rc.map;
+    if (cmData.length) {
+      classMap = {};
+      cmData.forEach(r => { classMap[r.proj+'||'+r.sub_key] = {sub: r.sub, item: r.item, tipo: r.tipo}; });
+    }
+
     initFilters(); run();
-    // If Caixa tab is currently active, re-render it too with fresh data
     if (document.getElementById('painel-caixa')?.style.display === 'block') {
       populateCxPeriodo(); renderCaixa();
     }
   } catch(e) {
-    console.warn('Supabase load failed, starting empty:', e.message);
+    console.warn('Supabase load failed:', e.message);
     initFilters(); run();
   }
 }
