@@ -1477,13 +1477,18 @@ window.addEventListener('DOMContentLoaded', function(){
     document.getElementById('login-overlay').style.display='flex';
     return;
   }
-  // Load from Supabase if no embedded data
+  // Load from embedded data first
   if(window.__PRE__){
     budgetRows=window.__PRE__.b; extratoRows=window.__PRE__.e; classMap=window.__PRE__.c;
     classifyExtrato();
     document.getElementById('fn-ext').textContent=extratoRows.length+' despesas';
+    initFilters(); run();
+    // Also load from Supabase in background to pick up any newer imports
+    // but only update if Supabase has MORE data than embedded
+    loadFromSupabaseIfNewer();
+  } else {
+    loadFromSupabase();
   }
-  loadFromSupabase();
 });
 
 // Supabase integration
@@ -1495,6 +1500,24 @@ async function supaFetch(path, opts={}) {
 
 const __SUPA_URL = 'https://sjuzirbvogqppqmdtbhp.supabase.co';
 const __SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNqdXppcmJ2b2dxcHBxbWR0YmhwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQyOTUxNTcsImV4cCI6MjA4OTg3MTE1N30.ZmHjw57v0SOQUpjDSCHE8sV65KlZbpWDQx3wisjrnYw';
+
+async function loadFromSupabaseIfNewer() {
+  // Only update from Supabase if it has more rows than embedded data
+  try {
+    const fixProj = p => { const u=(p||'').trim().toUpperCase(); if(u==='FINEP')return 'Finep'; if(u==='NAVE ANP')return 'NAVE ANP'; return (p||'').trim(); };
+    const [rb, re, rc] = await Promise.all([
+      fetch('/api/data?table=budget&from=0&size=1').then(r=>r.json()),
+      fetch('/api/data?table=extrato&from=0&size=1').then(r=>r.json()),
+      fetch('/api/data?table=classmap').then(r=>r.json()),
+    ]);
+    // If Supabase budget count matches embedded, skip update (embedded is source of truth)
+    // We only update if user has imported something new
+    const sbBudCount = rb.total || 0;
+    if(sbBudCount > 0 && sbBudCount !== budgetRows.length) {
+      await loadFromSupabase();
+    }
+  } catch(e) { /* silent */ }
+}
 
 async function loadFromSupabase() {
   const fixProj = p => { const u=(p||'').trim().toUpperCase(); if(u==='FINEP')return 'Finep'; if(u==='NAVE ANP')return 'NAVE ANP'; return (p||'').trim(); };
