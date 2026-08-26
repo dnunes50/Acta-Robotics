@@ -1487,17 +1487,18 @@ window.addEventListener('DOMContentLoaded', function(){
 });
 
 // Supabase integration
-const SUPA_URL = document.currentScript?.dataset?.url || '';
-const SUPA_KEY = document.currentScript?.dataset?.key || '';
 
 async function supaFetch(path, opts={}) {
   const url = '/api/supabase-proxy' + path;
   return fetch(url, { ...opts, headers: { 'Content-Type': 'application/json', ...(opts.headers||{}) } });
 }
 
+const __SUPA_URL = 'https://sjuzirbvogqppqmdtbhp.supabase.co';
+const __SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNqdXppcmJ2b2dxcHBxbWR0YmhwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQyOTUxNTcsImV4cCI6MjA4OTg3MTE1N30.ZmHjw57v0SOQUpjDSCHE8sV65KlZbpWDQx3wisjrnYw';
+
 async function loadFromSupabase() {
-  const SUPA_URL = 'https://sjuzirbvogqppqmdtbhp.supabase.co';
-  const SUPA_KEY = document.querySelector('meta[name="supa-key"]')?.content || '';
+  const SUPA_URL = __SUPA_URL;
+  const SUPA_KEY = __SUPA_KEY;
 
   async function supaFetchAll(table, order) {
     const allRows = [];
@@ -1559,8 +1560,8 @@ async function loadFromSupabase() {
 }
 
 async function saveToSupabase(type, rows, cm) {
-  const SUPA_URL = 'https://sjuzirbvogqppqmdtbhp.supabase.co';
-  const SUPA_KEY = document.querySelector('meta[name="supa-key"]')?.content || '';
+  const SUPA_URL = __SUPA_URL;
+  const SUPA_KEY = __SUPA_KEY;
 
   async function supaDelete(table) {
     const res = await fetch(`${SUPA_URL}/rest/v1/${table}?id=gte.0`, {
