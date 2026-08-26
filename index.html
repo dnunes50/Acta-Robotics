@@ -1254,12 +1254,12 @@ function toggleDetalhe(tipo) {
 
 // ── DASHBOARD ────────────────────────────────────────────────────────────────
 function calcSaldoBanco(banco) {
-  // Saldo de uma conta = saldo_inicial + soma de todos os lançamentos reais dessa conta
+  // Saldo de uma conta = saldo_inicial + soma de TODOS os lançamentos dessa conta
+  // (inclusive "Em aberto" — senão meses 100% previstos ficam com saldo congelado)
   const saldoIni = SALDOS_INICIAIS[banco] ?? null
   if (saldoIni === null) return null  // sem configuração, não pode calcular
-  const soma = DATA.filter(t => t.banco === banco && (isReal(t) || t.sit === 'Transferido'))
-                   .reduce((s, t) => s + t.valor, 0)
-  return saldoIni + soma
+  const soma = DATA.filter(t => t.banco === banco).reduce((s, t) => s + t.valor, 0)
+  return +(saldoIni + soma).toFixed(2)
 }
 
 function calcSaldoAtual() {
@@ -1542,23 +1542,26 @@ function renderHist() {
   }
 
   // Calcula saldoIni/saldoFim acumulando mês a mês a partir de SALDO_INICIAL
-  // usando APENAS as transações filtradas por banco (txnsFiltBase)
-  // Isso garante encadeamento correto independente do BM ou col M do extrato
+  // IMPORTANTE: o saldo acumula TODAS as entradas (qualquer valor>0) + TODAS as saídas,
+  // independente de categoria. rec/apo são apenas subconjuntos classificados (4.x e 6.5)
+  // usados para exibição — receitas em outras categorias (ex: "Receitas a Identificar",
+  // "7.2 Outras Receitas Não Operacionais") NÃO podem ficar de fora do saldo.
   let saldoAcum = SALDO_INICIAL
   const mesData = MONTHS.map(mk => {
     const m = BM[mk]
     const txnsMes = txnsFiltBase().filter(t=>MK(t.date)===mk)
+    const entTotal = txnsMes.filter(t=>t.valor>0).reduce((s,t)=>s+t.valor,0)
     const rec = txnsMes.filter(isReceita).reduce((s,t)=>s+t.valor,0)
     const apo = txnsMes.filter(isAporte).reduce((s,t)=>s+t.valor,0)
     const sai = txnsMes.filter(t=>t.valor<0).reduce((s,t)=>s+t.valor,0)
-    const res = rec + apo + sai
+    const res = entTotal + sai
     const cb  = rec + sai
     const tipo = m.real?'Realizado':m.parcial?'Parcial':'Previsto'
     const cor  = m.real?'var(--g)':m.parcial?'var(--am)':'var(--bl)'
     const saldoIniVal = saldoAcum
-    saldoAcum = +(saldoAcum + rec + apo + sai).toFixed(2)
+    saldoAcum = +(saldoAcum + entTotal + sai).toFixed(2)
     const saldoFim = saldoAcum
-    return { mk, m, rec, apo, sai, res, cb, tipo, cor, saldoFim, saldoIniVal }
+    return { mk, m, rec, apo, sai, res, cb, tipo, cor, saldoFim, saldoIniVal, entTotal }
   }).filter(d => meses.includes(d.mk))
 
   // ── Cards por mês ──────────────────────────────────────────────────────────
@@ -1980,19 +1983,22 @@ function renderExec() {
   const fcRows = meses.map(mk => {
     const m = BM[mk]
     const txMes = txnsAll.filter(t=>MK(t.date)===mk)
+    const entTotal = txMes.filter(t=>t.valor>0).reduce((s,t)=>s+t.valor,0)
     const rec = txMes.filter(isReceita).reduce((s,t)=>s+t.valor,0)
     const apo = txMes.filter(isAporte).reduce((s,t)=>s+t.valor,0)
     const sai = txMes.filter(t=>t.valor<0).reduce((s,t)=>s+t.valor,0)
     const cb  = rec + sai
-    const res = rec + apo + sai
+    const res = entTotal + sai
     fcTotRec+=rec; fcTotApo+=apo; fcTotSai+=sai
     const cor = m.real?'var(--g)':m.parcial?'var(--am)':'var(--bl)'
 
     let saldoIniVal, saldoFimVal
     if(saldoCorrente !== null) {
       saldoIniVal = saldoCorrente
-      const movReal = txMes.filter(t=>isReal(t)||t.sit==='Transferido').reduce((s,t)=>s+t.valor,0)
-      saldoCorrente = saldoCorrente + movReal
+      // Usa TODAS as movimentações do mês (inclusive "Em aberto"), nunca só as realizadas —
+      // senão meses 100% previstos (como Set-Dez) ficam com saldo congelado
+      const movMes = entTotal + sai
+      saldoCorrente = +(saldoCorrente + movMes).toFixed(2)
       saldoFimVal = saldoCorrente
     } else {
       saldoIniVal = m.saldoIni
