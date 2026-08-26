@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
+<meta name="supa-key" content="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNqdXppcmJ2b2dxcHBxbWR0YmhwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQyOTUxNTcsImV4cCI6MjA4OTg3MTE1N30.ZmHjw57v0SOQUpjDSCHE8sV65KlZbpWDQx3wisjrnYw">
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Controle Financeiro — Acta Robotics</title>
@@ -1524,22 +1525,58 @@ async function loadFromSupabase() {
 }
 
 async function saveToSupabase(type, rows, cm) {
-  try {
-    // Serialize Date objects before sending
-    const serialize = arr => arr.map(r => ({
-      ...r,
-      mes: r.mes instanceof Date ? r.mes.toISOString().slice(0,10) : (r.mes ? String(r.mes).slice(0,10) : null)
-    }));
-    const res = await fetch('/api/import', {
-      method: 'POST',
-      headers: {'Content-Type':'application/json'},
-      body: JSON.stringify({type, rows: serialize(rows), classMap: cm})
+  const SUPA_URL = 'https://sjuzirbvogqppqmdtbhp.supabase.co';
+  const SUPA_KEY = document.querySelector('meta[name="supa-key"]')?.content || '';
+
+  async function supaDelete(table) {
+    const res = await fetch(`${SUPA_URL}/rest/v1/${table}?id=gte.0`, {
+      method: 'DELETE',
+      headers: { 'apikey': SUPA_KEY, 'Authorization': `Bearer ${SUPA_KEY}`, 'Content-Type': 'application/json' }
     });
-    const data = await res.json();
-    if (!data.ok) console.error('Save error:', data.error);
-    return data;
+    return res.ok;
+  }
+
+  async function supaInsert(table, batch) {
+    const res = await fetch(`${SUPA_URL}/rest/v1/${table}`, {
+      method: 'POST',
+      headers: {
+        'apikey': SUPA_KEY, 'Authorization': `Bearer ${SUPA_KEY}`,
+        'Content-Type': 'application/json', 'Prefer': 'return=minimal'
+      },
+      body: JSON.stringify(batch)
+    });
+    if (!res.ok) { const t = await res.text(); throw new Error(t); }
+  }
+
+  const fixMes = r => ({
+    ...r,
+    mes: r.mes instanceof Date ? r.mes.toISOString().slice(0,10) : (r.mes ? String(r.mes).slice(0,10) : null)
+  });
+
+  const BATCH = 300;
+
+  try {
+    if (type === 'budget') {
+      await supaDelete('cf_budget_rows');
+      await supaDelete('cf_class_map');
+      const toIns = rows.map(r => ({ proj: r.proj, mes: fixMes(r).mes, tipo: r.tipo, item: r.item, sub: r.sub, valor: r.valor }));
+      for (let i = 0; i < toIns.length; i += BATCH) await supaInsert('cf_budget_rows', toIns.slice(i, i+BATCH));
+      if (cm) {
+        const cmRows = Object.entries(cm).map(([k, v]) => { const [proj, sub_key] = k.split('||'); return { proj, sub_key, sub: v.sub, item: v.item, tipo: v.tipo }; });
+        for (let i = 0; i < cmRows.length; i += BATCH) await supaInsert('cf_class_map', cmRows.slice(i, i+BATCH));
+      }
+    }
+    if (type === 'extrato') {
+      await supaDelete('cf_extrato_rows');
+      const toIns = rows
+        .filter(r => (r._origem||r.origem||'').trim() !== 'Transferência')
+        .map(r => ({ data: r.data, proj: r.proj, mes: fixMes(r).mes, obs: r.obs||'', valor: Number(r.valor), fornecedor: r.fornecedor||'', conta: r.conta||'', situacao: r.situacao||'', descricao: r.descricao||'', origem: r._origem||r.origem||'', sub: r.sub||'', item: r.item||'', tipo: r.tipo||'', classified: !!r.classified }));
+      for (let i = 0; i < toIns.length; i += BATCH) await supaInsert('cf_extrato_rows', toIns.slice(i, i+BATCH));
+    }
+    return { ok: true };
   } catch(e) {
     console.error('Save failed:', e.message);
+    return { ok: false, error: e.message };
   }
 }
 
