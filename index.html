@@ -864,7 +864,7 @@ async function carregarDoSupabase() {
       sit: r.situacao || '',
       cat: r.categoria || '–',
       cc: r.centro_custo || '–',
-      banco: r.banco || 'Inter'
+      banco: r.banco || r.conta_bancaria || ''
     }))
 
     setLoadMsg(`${DATA.length} lançamentos carregados`)
@@ -900,18 +900,49 @@ function processarDados() {
     BM[mk].txns.push(t)
   })
   MONTHS = Object.keys(BM).sort()
+  recalcSaldos()
+}
+
+// Recalcula saldoIni/saldoFim/ent/sai do BM aplicando filtro de banco
+// Chamado após processarDados e após qualquer mudança de filtro de banco
+function recalcSaldos() {
+  // Determina quais transações usar para o saldo
+  // Se tem filtro de banco ativo, usa só aquele banco
+  // Senão, detecta automaticamente o banco com mais transações (conta operacional principal)
+  let bancoFiltro = AF.banco
+  if (!bancoFiltro) {
+    // Conta frequência por banco e pega o mais comum
+    const freq = {}
+    DATA.forEach(t => { if(t.banco) freq[t.banco] = (freq[t.banco]||0) + 1 })
+    // Prioriza banco que contenha 'Inter' no nome, senão pega o mais frequente
+    const bancos = Object.keys(freq)
+    bancoFiltro = bancos.find(b => b.toLowerCase().includes('inter'))
+               || bancos.sort((a,b) => freq[b]-freq[a])[0]
+               || ''
+  }
+  const txnsParaSaldo = bancoFiltro ? DATA.filter(t => t.banco === bancoFiltro) : DATA
+
+  // Monta mapa por mês das transações filtradas
+  const byMes = {}
+  txnsParaSaldo.forEach(t => {
+    const mk = MK(t.date)
+    if (!byMes[mk]) byMes[mk] = []
+    byMes[mk].push(t)
+  })
+
   MONTHS.forEach((mk, i) => {
     const m = BM[mk]
-    // saldoIni: fixo no primeiro mês, senão saldoFim calculado do mês anterior
+    const txMes = byMes[mk] || []
+
     m.saldoIni = i===0 ? SALDO_INICIAL : BM[MONTHS[i-1]].saldoFim
-    m.ent = m.txns.filter(t=>t.valor>0).reduce((s,t)=>s+t.valor,0)
-    m.sai = m.txns.filter(t=>t.valor<0).reduce((s,t)=>s+t.valor,0)
-    // saldoFim sempre calculado por acumulação — corrige meses futuros (Em aberto)
-    // evita usar col M do extrato que repete o saldo atual para lançamentos futuros
+    m.ent = txMes.filter(t=>t.valor>0).reduce((s,t)=>s+t.valor,0)
+    m.sai = txMes.filter(t=>t.valor<0).reduce((s,t)=>s+t.valor,0)
+    // saldoFim encadeado — nunca usa col M do extrato
     m.saldoFim = +(m.saldoIni + m.ent + m.sai).toFixed(2)
+
     const sits = new Set(m.txns.map(t=>t.sit))
-    m.real = !sits.has('Em aberto')
-    m.parcial = sits.has('Em aberto') && (sits.has('Conciliado')||sits.has('Quitado'))
+    m.real = !sits.has('Em aberto') && !sits.has('Atrasado')
+    m.parcial = (sits.has('Em aberto')||sits.has('Atrasado')) && (sits.has('Conciliado')||sits.has('Quitado')||sits.has('Transferido'))
   })
   AMES = 'all'
   buildMesBtns()
@@ -952,6 +983,7 @@ function applyFilters() {
   AF.grupo = document.getElementById('af-grupo').value
   AF.d1    = document.getElementById('af-d1').value
   AF.d2    = document.getElementById('af-d2').value
+  recalcSaldos()
   updateFilterUI()
   refresh()
 }
@@ -965,6 +997,7 @@ function clearFilters() {
   document.getElementById('af-grupo').value = ''
   document.getElementById('af-d1').value = ''
   document.getElementById('af-d2').value = ''
+  recalcSaldos()
   updateFilterUI()
   refresh()
 }
@@ -1133,7 +1166,7 @@ async function confirmImp() {
         situacao: t.sit,
         categoria: t.cat,
         centro_custo: t.cc,
-        banco: t.banco || 'Inter'
+        banco: t.banco || ''
       }))
       const { error: insErr } = await sb.from('extratos').insert(rows)
       if(insErr) throw insErr
@@ -1188,26 +1221,20 @@ function calcSaldoBanco(banco) {
 }
 
 function calcSaldoAtual() {
-  // Se há saldos iniciais configurados: calcula por conta e soma
-  const bancosComConfig = Object.keys(SALDOS_INICIAIS)
-  if (bancosComConfig.length > 0) {
-    if (AF.banco) {
-      const s = calcSaldoBanco(AF.banco)
-      // Fallback para saldo global se conta não tiver configuração
-      if (s !== null) return s
-    } else {
-      // Tenta somar saldos de todas as contas com config
-      const bancosComDados = [...new Set(DATA.map(t=>t.banco).filter(Boolean))]
-      const bancosComAmbos = bancosComDados.filter(b => SALDOS_INICIAIS[b] !== undefined)
-      if (bancosComAmbos.length === bancosComDados.length) {
-        // Todas as contas têm configuração → soma calculada
-        return bancosComAmbos.reduce((s, b) => s + (calcSaldoBanco(b) ?? 0), 0)
-      }
-    }
-  }
-  // Fallback: último lançamento real global (saldo_conta consolidado do Conta Azul)
-  const reais = DATA.filter(t => isReal(t) || t.sit === 'Transferido')
-  return reais.length ? reais[reais.length - 1].saldo : SALDO_INICIAL
+  // Sempre calcula saldo acumulado a partir de SALDO_INICIAL
+  // usando as transações filtradas pelo banco selecionado (ou banco principal)
+  // Nunca usa col M do extrato (que é saldo consolidado de todas as contas)
+  const bancoAtivo = AF.banco || (() => {
+    const freq = {}
+    DATA.forEach(t=>{ if(t.banco) freq[t.banco]=(freq[t.banco]||0)+1 })
+    const bancos = Object.keys(freq)
+    return bancos.find(b=>b.toLowerCase().includes('inter'))
+        || bancos.sort((a,b)=>freq[b]-freq[a])[0] || ''
+  })()
+
+  const txnsBanco = bancoAtivo ? DATA.filter(t=>t.banco===bancoAtivo) : DATA
+  const mov = txnsBanco.reduce((s,t)=>s+t.valor, 0)
+  return +(SALDO_INICIAL + mov).toFixed(2)
 }
 
 function renderDash() {
@@ -1472,14 +1499,11 @@ function renderHist() {
     return txns
   }
 
-  // Calcula saldo corrente acumulado mês a mês
-  const temConfigTotal = Object.keys(SALDOS_INICIAIS).length > 0
-  const saldoIniTotal = temConfigTotal ? Object.values(SALDOS_INICIAIS).reduce((s,v)=>s+v,0) : null
-  let saldoCorrente = AF.banco
-    ? (SALDOS_INICIAIS[AF.banco] ?? null)
-    : saldoIniTotal  // soma de todos os saldos iniciais
-
-  const mesData = meses.map(mk => {
+  // Calcula saldoIni/saldoFim acumulando mês a mês a partir de SALDO_INICIAL
+  // usando APENAS as transações filtradas por banco (txnsFiltBase)
+  // Isso garante encadeamento correto independente do BM ou col M do extrato
+  let saldoAcum = SALDO_INICIAL
+  const mesData = MONTHS.map(mk => {
     const m = BM[mk]
     const txnsMes = txnsFiltBase().filter(t=>MK(t.date)===mk)
     const rec = txnsMes.filter(isReceita).reduce((s,t)=>s+t.valor,0)
@@ -1489,21 +1513,11 @@ function renderHist() {
     const cb  = rec + sai
     const tipo = m.real?'Realizado':m.parcial?'Parcial':'Previsto'
     const cor  = m.real?'var(--g)':m.parcial?'var(--am)':'var(--bl)'
-
-    let saldoFim, saldoIniVal
-    if (saldoCorrente !== null) {
-      // Tem configuração: calcula acumulado mês a mês
-      saldoIniVal = saldoCorrente
-      const movMes = txnsMes.filter(t=>isReal(t)||t.sit==='Transferido').reduce((s,t)=>s+t.valor,0)
-      saldoCorrente = saldoCorrente + movMes
-      saldoFim = saldoCorrente
-    } else {
-      // Sem configuração: usa saldo_conta global do Conta Azul
-      saldoFim = m.saldoFim
-      saldoIniVal = m.saldoIni
-    }
+    const saldoIniVal = saldoAcum
+    saldoAcum = +(saldoAcum + rec + apo + sai).toFixed(2)
+    const saldoFim = saldoAcum
     return { mk, m, rec, apo, sai, res, cb, tipo, cor, saldoFim, saldoIniVal }
-  })
+  }).filter(d => meses.includes(d.mk))
 
   // ── Cards por mês ──────────────────────────────────────────────────────────
   document.getElementById('hist-cards').innerHTML = mesData.map(({mk,m,rec,apo,sai,res,cb,tipo,cor,saldoFim,saldoIniVal}) => `
@@ -1634,37 +1648,30 @@ function renderDiario() {
     ? (SALDOS_INICIAIS[AF.banco] ?? null)
     : temConfig ? Object.values(SALDOS_INICIAIS).reduce((s,v)=>s+v,0) : null
 
-  // Acumula saldo mês a mês para dias sem movimento
-  let saldoMesAnterior = saldoIniBase
-
   const txnsFilt = filtTxns()
   meses.forEach(mk=>{
     const[y,mo]=mk.split('-'), ini=new Date(+y,+mo-1,1), fim=new Date(+y,+mo,0)
     const txnsMes = txnsFilt.filter(t=>MK(t.date)===mk)
     const byDay={}
-    txnsMes.forEach(t=>{const k=PK(t.date);if(!byDay[k])byDay[k]={e:0,s:0,sal:t.saldo,sit:t.sit};if(t.valor>0)byDay[k].e+=t.valor;else byDay[k].s+=t.valor;byDay[k].sal=t.saldo;byDay[k].sit=byDay[k].sit==='Em aberto'?'Em aberto':t.sit})
+    txnsMes.forEach(t=>{const k=PK(t.date);if(!byDay[k])byDay[k]={e:0,s:0,sit:t.sit};if(t.valor>0)byDay[k].e+=t.valor;else byDay[k].s+=t.valor;byDay[k].sit=byDay[k].sit==='Em aberto'?'Em aberto':t.sit})
     const m=BM[mk]
-    // ps: saldo inicial do mês — usa calculado se tem config, senão usa global
-    let ps = saldoMesAnterior !== null ? saldoMesAnterior : m.saldoIni
+    // Sempre usa saldoIni calculado pelo processarDados — encadeia corretamente de Jan a Dez
+    let ps = m.saldoIni
+    // Recalcula saldo acumulado dia a dia a partir do saldoIni do mês
+    const dayKeys = Object.keys(byDay).sort()
+    dayKeys.forEach(k => {
+      ps = +(ps + byDay[k].e + byDay[k].s).toFixed(2)
+      byDay[k].sal = ps
+    })
+    ps = m.saldoIni
     for(let d=new Date(ini);d<=fim;d.setDate(d.getDate()+1)){
       const k=PK(new Date(d))
       if(byDay[k]){
-        // Para dias com movimento: se tem config, recalcula o saldo do dia
-        if(saldoMesAnterior !== null) {
-          ps = ps + byDay[k].e + byDay[k].s
-          byDay[k] = {...byDay[k], sal: ps}
-        } else {
-          ps = byDay[k].sal
-        }
+        ps = byDay[k].sal
         rows.push({k,date:new Date(d),...byDay[k],sal:ps,tipo:'mov'})
       } else {
         rows.push({k,date:new Date(d),e:0,s:0,sal:ps,sit:'',tipo:'vazio'})
       }
-    }
-    // Atualiza saldo para próximo mês
-    if(saldoMesAnterior !== null) {
-      const movReal = txnsMes.filter(t=>isReal(t)||t.sit==='Transferido').reduce((s,t)=>s+t.valor,0)
-      saldoMesAnterior = (saldoMesAnterior !== null ? saldoMesAnterior : m.saldoIni) + movReal
     }
   })
   document.getElementById('diario-cnt').textContent=rows.filter(r=>r.tipo==='mov').length+' dias com movimento'
@@ -1680,8 +1687,10 @@ function renderDiario() {
 function renderProj() {
   const today=new Date(); today.setHours(0,0,0,0)
   const futuros=DATA.filter(t=>isPend(t)&&new Date(t.date)>=today).sort((a,b)=>a.date-b.date)
-  const realizados=DATA.filter(t=>isReal(t))
-  const saldoBase=realizados.length?realizados[realizados.length-1].saldo:SALDO_INICIAL
+  // saldoBase = saldoFim calculado do último mês com dados (encadeado desde SALDO_INICIAL)
+  // Não usar col M do extrato — ela representa saldo consolidado de todas as contas
+  const mesesReais=MONTHS.filter(mk=>BM[mk].real||BM[mk].parcial)
+  const saldoBase=mesesReais.length ? BM[mesesReais[mesesReais.length-1]].saldoFim : SALDO_INICIAL
   if(!futuros.length){document.getElementById('proj-bann').textContent='Nenhum lançamento futuro (Em aberto) encontrado no extrato.';return}
   document.getElementById('proj-range').textContent=`${futuros[0].date.toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit'})} → ${futuros[futuros.length-1].date.toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit'})}`
   document.getElementById('proj-bann').textContent=`Base: ${R(saldoBase)} — ${futuros.length} lançamentos futuros previstos`
