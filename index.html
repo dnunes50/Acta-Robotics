@@ -896,16 +896,19 @@ function processarDados() {
   BM = {}
   DATA.forEach(t => {
     const mk = MK(t.date)
-    if (!BM[mk]) BM[mk] = { txns:[], saldoFim:t.saldo, saldoIni:0, ent:0, sai:0, real:false, parcial:false }
+    if (!BM[mk]) BM[mk] = { txns:[], saldoFim:0, saldoIni:0, ent:0, sai:0, real:false, parcial:false }
     BM[mk].txns.push(t)
-    BM[mk].saldoFim = t.saldo
   })
   MONTHS = Object.keys(BM).sort()
   MONTHS.forEach((mk, i) => {
     const m = BM[mk]
+    // saldoIni: fixo no primeiro mês, senão saldoFim calculado do mês anterior
     m.saldoIni = i===0 ? SALDO_INICIAL : BM[MONTHS[i-1]].saldoFim
     m.ent = m.txns.filter(t=>t.valor>0).reduce((s,t)=>s+t.valor,0)
     m.sai = m.txns.filter(t=>t.valor<0).reduce((s,t)=>s+t.valor,0)
+    // saldoFim sempre calculado por acumulação — corrige meses futuros (Em aberto)
+    // evita usar col M do extrato que repete o saldo atual para lançamentos futuros
+    m.saldoFim = +(m.saldoIni + m.ent + m.sai).toFixed(2)
     const sits = new Set(m.txns.map(t=>t.sit))
     m.real = !sits.has('Em aberto')
     m.parcial = sits.has('Em aberto') && (sits.has('Conciliado')||sits.has('Quitado'))
