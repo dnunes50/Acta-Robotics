@@ -2,7 +2,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { loadBudget, loadExtrato, loadClassMap } from '@/lib/db'
 import { BudgetRow, ExtratoRow } from '@/lib/types'
-import { mesLbl, fmtM, fmtF, sortedMonths } from '@/lib/utils'
+import { mesLbl, fmtM, fmtF, sortedMonths, fmtDateTime, maxCreatedAt } from '@/lib/utils'
 import ImportModal from './ImportModal'
 import TabFinanceiro from './TabFinanceiro'
 import TabCaixa from './TabCaixa'
@@ -66,6 +66,9 @@ export default function Dashboard() {
     window.location.reload()
   }
 
+  const budgetUpdatedAt = maxCreatedAt(budgetRows)
+  const extratoUpdatedAt = maxCreatedAt(extratoRows)
+
   const allMes = sortedMonths([...budgetRows, ...extratoRows].map(r => r.mes))
   const allAnos = [...new Set(allMes.map(m => {
     const parts = m.split('/')
@@ -84,11 +87,18 @@ export default function Dashboard() {
             Acta Robotics · Controle Financeiro
           </span>
         </div>
-        <div className="flex items-center gap-2">
-          {loading && <span className="text-xs mono" style={{ color: 'var(--muted)' }}>carregando...</span>}
-          <button onClick={toggleTheme} className="btn-sm">{theme === 'dark' ? '☀' : '🌙'}</button>
-          <button onClick={() => setShowImport(true)} className="btn-sm">📥 Importar</button>
-          <button onClick={logout} className="btn-sm">↩ Sair</button>
+        <div className="flex items-center gap-4">
+          <div className="hidden md:flex items-center gap-3 text-[11px] mono" style={{ color: 'var(--muted)' }}>
+            <span>Budget atualizado: {fmtDateTime(budgetUpdatedAt)}</span>
+            <span style={{ color: 'var(--border)' }}>|</span>
+            <span>Extrato atualizado: {fmtDateTime(extratoUpdatedAt)}</span>
+          </div>
+          <div className="flex items-center gap-2">
+            {loading && <span className="text-xs mono" style={{ color: 'var(--muted)' }}>carregando...</span>}
+            <button onClick={toggleTheme} className="btn-sm">{theme === 'dark' ? '☀' : '🌙'}</button>
+            <button onClick={() => setShowImport(true)} className="btn-sm">📥 Importar</button>
+            <button onClick={logout} className="btn-sm">↩ Sair</button>
+          </div>
         </div>
       </header>
 

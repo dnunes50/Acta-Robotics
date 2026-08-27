@@ -28,6 +28,26 @@ export function sortedMonths(dateStrings: (string | null)[]): string[] {
   return Object.entries(map).sort((a, b) => a[1].getTime() - b[1].getTime()).map(x => x[0])
 }
 
+export function fmtDateTime(iso: string | null | undefined): string {
+  if (!iso) return '—'
+  const d = new Date(iso)
+  if (isNaN(d.getTime())) return '—'
+  const dd = String(d.getDate()).padStart(2, '0')
+  const mm = String(d.getMonth() + 1).padStart(2, '0')
+  const yyyy = d.getFullYear()
+  const hh = String(d.getHours()).padStart(2, '0')
+  const min = String(d.getMinutes()).padStart(2, '0')
+  return `${dd}/${mm}/${yyyy} ${hh}:${min}`
+}
+
+export function maxCreatedAt(rows: { created_at?: string }[]): string | null {
+  let max: string | null = null
+  for (const r of rows) {
+    if (r.created_at && (!max || r.created_at > max)) max = r.created_at
+  }
+  return max
+}
+
 export function groupByMes<T extends { mes: string | null; valor: number }>(rows: T[]): Record<string, number> {
   const out: Record<string, number> = {}
   for (const r of rows) {
