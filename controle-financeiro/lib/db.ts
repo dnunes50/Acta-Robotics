@@ -74,6 +74,7 @@ export async function loadBudget(): Promise<BudgetRow[]> {
     .from('cf_budget_rows')
     .select('*')
     .order('mes', { ascending: true })
+    .order('id', { ascending: true })
   if (error) throw error
   return data || []
 }
@@ -83,6 +84,7 @@ export async function loadExtrato(): Promise<ExtratoRow[]> {
     .from('cf_extrato_rows')
     .select('*')
     .order('mes', { ascending: true })
+    .order('id', { ascending: true })
   if (error) throw error
   return data || []
 }
