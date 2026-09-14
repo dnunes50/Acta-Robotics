@@ -6,6 +6,7 @@ export interface BudgetRow {
   item: string
   sub: string
   valor: number
+  created_at?: string
 }
 
 export interface ExtratoRow {
@@ -24,6 +25,7 @@ export interface ExtratoRow {
   item: string
   tipo: string
   classified: boolean
+  created_at?: string
 }
 
 export interface ClassMapEntry {
