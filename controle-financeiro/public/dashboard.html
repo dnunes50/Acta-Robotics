@@ -419,6 +419,7 @@ thead th{vertical-align:top}
   <div class="tcard">
     <div class="thdr">
       <span style="font-size:11px;font-family:'IBM Plex Mono',monospace;color:var(--muted)" id="lcount"></span>
+      <span style="font-size:11px;font-family:'IBM Plex Mono',monospace;color:var(--muted);margin-left:12px" id="lsub"></span>
       <input class="srch" type="text" placeholder="Buscar..." id="srch" oninput="filterLanc()">
     </div>
     <div class="twrap">
@@ -1360,6 +1361,8 @@ function filterLanc(){
 
   dispRows=rows; page=1;
   document.getElementById('lcount').textContent=`${rows.length} lançamentos${onlyUnclass?' · apenas não classificados':''}`;
+  const sub=rows.reduce((s,r)=>s+(r.valor||0),0);
+  document.getElementById('lsub').textContent=`Subtotal: ${fmtF(sub)}`;
   onlyUnclass=false;
   renderLancPage();
 }
