@@ -227,6 +227,8 @@ thead th{vertical-align:top}
     <span class="logo-text">Acta Robotics · Controle Financeiro</span>
   </div>
   <div class="hdr-r" id="hdr-r" style="display:flex">
+    <span class="hdr-fname" id="upd-bud" style="color:var(--muted);font-size:11px"></span>
+    <span class="hdr-fname" id="upd-ext" style="color:var(--muted);font-size:11px"></span>
     <span class="hdr-fname" id="fn-bud" style="display:none"></span>
     <span class="hdr-fname" id="fn-ext" style="color:var(--muted)"></span>
     <button class="btn" id="theme-btn" style="font-size:11px" onclick="toggleTheme()" title="Alternar tema">☀</button>
@@ -417,6 +419,7 @@ thead th{vertical-align:top}
   <div class="tcard">
     <div class="thdr">
       <span style="font-size:11px;font-family:'IBM Plex Mono',monospace;color:var(--muted)" id="lcount"></span>
+      <span style="font-size:11px;font-family:'IBM Plex Mono',monospace;color:var(--muted);margin-left:12px" id="lsub"></span>
       <input class="srch" type="text" placeholder="Buscar..." id="srch" oninput="filterLanc()">
     </div>
     <div class="twrap">
@@ -1358,6 +1361,8 @@ function filterLanc(){
 
   dispRows=rows; page=1;
   document.getElementById('lcount').textContent=`${rows.length} lançamentos${onlyUnclass?' · apenas não classificados':''}`;
+  const sub=rows.reduce((s,r)=>s+(r.valor||0),0);
+  document.getElementById('lsub').textContent=`Subtotal: ${fmtF(sub)}`;
   onlyUnclass=false;
   renderLancPage();
 }
@@ -1494,6 +1499,29 @@ async function supaFetch(path, opts={}) {
   return fetch(url, { ...opts, headers: { 'Content-Type': 'application/json', ...(opts.headers||{}) } });
 }
 
+function fmtDateTime(iso) {
+  if (!iso) return '—';
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return '—';
+  const dd = String(d.getDate()).padStart(2,'0');
+  const mm = String(d.getMonth()+1).padStart(2,'0');
+  const yyyy = d.getFullYear();
+  const hh = String(d.getHours()).padStart(2,'0');
+  const min = String(d.getMinutes()).padStart(2,'0');
+  return `${dd}/${mm}/${yyyy} ${hh}:${min}`;
+}
+function maxCreatedAt(rows) {
+  let max = null;
+  (rows||[]).forEach(r => { if (r.created_at && (!max || r.created_at > max)) max = r.created_at; });
+  return max;
+}
+function updateLastUpdated(budRows, extRows) {
+  const elB = document.getElementById('upd-bud');
+  const elE = document.getElementById('upd-ext');
+  if (elB) elB.textContent = 'Budget atualizado: ' + fmtDateTime(maxCreatedAt(budRows));
+  if (elE) elE.textContent = 'Extrato atualizado: ' + fmtDateTime(maxCreatedAt(extRows));
+}
+
 async function loadFromSupabase() {
   try {
     const [rb, re, rc] = await Promise.all([
@@ -1512,6 +1540,7 @@ async function loadFromSupabase() {
         .map(r=>({...r, valor: Number(r.valor), _origem: r.origem, proj: fixProj(r.proj), mes: r.mes ? new Date(r.mes+'T00:00:00') : null}));
     }
     if (rc.map) classMap = rc.map;
+    updateLastUpdated(rb.rows, re.rows);
     initFilters(); run();
     // If Caixa tab is currently active, re-render it too with fresh data
     if (document.getElementById('painel-caixa')?.style.display === 'block') {
